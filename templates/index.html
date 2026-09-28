@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Transcript Retriever & Scraper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=3.0">
+</head>
+<body>
+    <!-- Background glow accents -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="navbar">
+            <div class="nav-brand">
+                <div class="brand-logo">
+                    <span class="logo-icon" style="font-weight: 800; font-size: 1.05rem; color: var(--primary); letter-spacing: -0.05em;">TT</span>
+                </div>
+                <div>
+                    <div class="brand-title">TikTok <span>Transcriber</span></div>
+                    <div class="brand-subtitle">Profile Scraper & Speech-to-Text Engine</div>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <button id="apiKeyBtn" class="pill-btn secondary" title="Configure Groq API Key">
+                    <span class="key-indicator {{if .HasEnvKey}}active{{end}}" id="keyIndicator"></span>
+                    <span id="keyLabel">{{if .HasEnvKey}}Groq Key Active{{else}}Set Groq Key{{end}}</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- API Key Drawer Modal -->
+        <div id="keyModal" class="modal-backdrop hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>Groq API Key Configuration</h3>
+                    <button class="close-btn" id="closeKeyModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Used for instant <strong>AI Title Generation (Llama 3.1)</strong> and <strong>Whisper Large-v3 AI</strong> speech recognition. Groq provides this 100% free with no credit card required.</p>
+                    <p style="margin: 0.6rem 0 1rem 0;">
+                        <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: underline;">Click here to get a free Groq API Key at console.groq.com/keys</a>
+                    </p>
+                    <div class="form-group">
+                        <label for="groqKeyInput">Groq API Key (starts with <code>gsk_...</code>):</label>
+                        <input type="password" id="groqKeyInput" class="custom-input" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="saveKeyBtn" class="btn primary">Save Key & Generate</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Input Section -->
+        <main class="main-content">
+            <section class="hero-section">
+                <div class="hero-badge">Pure Go Standard Library • Zero Frameworks</div>
+                <h1 class="hero-title">Retrieve Accurate Transcripts from TikTok Creators</h1>
+                <p class="hero-description">Paste any TikTok video link to unlock that creator's full video catalog, search keywords, and extract speech transcripts with Groq Whisper Large-v3 AI.</p>
+
+                <div class="search-card">
+                    <div class="input-row">
+                        <div class="input-wrapper">
+                            <span class="input-icon" style="font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">URL</span>
+                            <input type="text" id="urlInput" class="search-input" placeholder="Paste any TikTok video link (e.g., https://vt.tiktok.com/... or /video/...)" autocomplete="off">
+                            <button id="clearInput" class="clear-input-btn hidden">&times;</button>
+                        </div>
+                        <button id="submitBtn" class="btn primary main-action-btn">
+                            <span class="btn-spinner hidden" id="mainSpinner"></span>
+                            <span id="btnText">Fetch & Transcribe</span>
+                        </button>
+                    </div>
+
+                    <div class="search-tip">
+                        <span class="tip-icon" style="font-size: 0.8rem; font-weight: 700; color: var(--primary); text-transform: uppercase;">Note:</span>
+                        <span><strong>Important:</strong> Paste <strong>any video link</strong> from a creator. TikTok blocks direct profile handles (<code>@username</code>), but any single video link instantly unlocks their entire video catalog!</span>
+                    </div>
+
+                    <div class="options-bar">
+                        <div class="toggle-group">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="forceWhisperToggle">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-label">Always use Whisper Large-v3 AI (bypasses TikTok captions)</span>
+                            </label>
+                        </div>
+                        <div class="quick-examples">
+                            <span class="examples-label">Try:</span>
+                            <button class="example-chip" data-url="https://vt.tiktok.com/ZSb6P1BSu/">Sample Creator (112 vids)</button>
+                            <button class="example-chip" data-url="https://www.tiktok.com/@scout2015/video/6718335390845095173">Single Video</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Banner -->
+            <div id="loadingBanner" class="loading-state hidden">
+                <div class="spinner"></div>
+                <div class="loading-text">
+                    <h4 id="loadingTitle">Processing TikTok Request...</h4>
+                    <p id="loadingSubtitle">Fetching metadata and checking available transcripts</p>
+                </div>
+            </div>
+
+            <!-- Profile Videos Gallery -->
+            <section id="profileSection" class="profile-section hidden">
+                <div class="profile-header">
+                    <div class="profile-info">
+                        <div class="profile-avatar-circle" id="profileInitial">@</div>
+                        <div>
+                            <h2 class="profile-username" id="profileUsername">@creator</h2>
+                            <p class="profile-meta" id="profileMeta">Select any video below to retrieve its transcript</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Featured Card for the Specific Video Pasted -->
+                <div id="featuredVideoBox" class="featured-video-box hidden">
+                    <div class="featured-badge">Selected Video</div>
+                    <div class="featured-body">
+                        <div class="featured-details">
+                            <h3 id="featuredTitle" class="featured-title">Selected Video</h3>
+                            <p id="featuredDesc" class="featured-desc"></p>
+                            <div class="featured-meta-row">
+                                <span id="featuredDuration" class="pill-meta">0:00</span>
+                                <span id="featuredViews" class="pill-meta">0 views</span>
+                            </div>
+                        </div>
+                        <div class="featured-btn-wrap">
+                            <button id="featuredTranscribeBtn" class="btn primary featured-btn">
+                                Transcribe This Video
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-header-row">
+                    <div class="section-title-wrap">
+                        <h3 class="sub-heading">All Videos by Creator</h3>
+                        <span id="filteredVideoCount" class="filtered-count"></span>
+                    </div>
+                    <div class="search-controls-wrap">
+                        <div class="video-filter-box">
+                            <span class="filter-icon" style="font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">Find</span>
+                            <input type="text" id="videoSearchInput" class="video-search-input" placeholder="Search keywords in titles or captions..." autocomplete="off">
+                            <button id="clearVideoSearch" class="clear-search-btn hidden" title="Clear search">&times;</button>
+                        </div>
+                        <div class="search-scope-toggle">
+                            <button id="scopeAllBtn" class="scope-btn active" title="Search both titles and captions (excluding hashtags)">All Text</button>
+                            <button id="scopeTitleBtn" class="scope-btn" title="Search only video titles">Titles Only</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="video-grid" id="videoGrid">
+                    <!-- Video cards populated via JS -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Transcript Results Modal / Drawer -->
+        <div id="transcriptModal" class="modal-backdrop hidden">
+            <div class="modal-card transcript-modal-card">
+                <div class="modal-header">
+                    <div class="modal-title-wrap">
+                        <div class="badge-cluster">
+                            <span class="source-badge" id="sourceBadge">Source</span>
+                            <span class="meta-badge" id="langBadge">Lang</span>
+                            <span class="meta-badge" id="wordsBadge">0 words</span>
+                            <span class="meta-badge" id="durationBadge">0s</span>
+                        </div>
+                        <h3 id="transcriptVideoTitle" class="video-modal-title">Video Transcript</h3>
+                    </div>
+                    <button class="close-btn" id="closeTranscriptModal">&times;</button>
+                </div>
+
+                <div class="modal-body transcript-body">
+                    <!-- Live Modal Loading State -->
+                    <div id="modalLoadingBox" class="modal-loading-box hidden">
+                        <div class="spinner large"></div>
+                        <h4 id="modalLoadingTitle">Transcribing Video...</h4>
+                        <p id="modalLoadingSub">Extracting speech with Whisper Large-v3 AI</p>
+                    </div>
+
+                    <!-- AI Generated Title Card -->
+                    <div id="aiTitleCard" class="ai-title-card hidden">
+                        <div class="ai-title-top">
+                            <span class="ai-title-tag">AI Generated Title</span>
+                            <button id="regenerateTitleBtn" class="regen-btn" title="Generate alternate title">Regenerate</button>
+                        </div>
+                        <h2 id="aiTitleText" class="ai-title-heading"></h2>
+                    </div>
+
+                    <div class="transcript-toolbar" id="transcriptToolbar">
+                        <div class="view-toggles">
+                            <button class="toggle-btn active" id="viewParagraphsBtn">Clean Paragraph</button>
+                            <button class="toggle-btn" id="viewTimestampsBtn">Timestamps</button>
+                        </div>
+                        <div class="transcript-actions">
+                            <button class="icon-btn" id="copyBtn" title="Copy to clipboard">
+                                <span id="copyText">Copy</span>
+                            </button>
+                            <button class="icon-btn" id="downloadTxtBtn" title="Download Plain Text">
+                                .TXT
+                            </button>
+                            <button class="icon-btn" id="downloadJsonBtn" title="Download JSON with timestamps">
+                                .JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Transcript Content Display -->
+                    <div class="transcript-content-box" id="transcriptContent">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <!-- Re-transcribe with Whisper Banner -->
+                    <div id="retranscribeBanner" class="retranscribe-banner hidden">
+                        <div>
+                            <strong>Want higher AI accuracy?</strong>
+                            <p>This transcript was pulled from TikTok captions. You can re-run it with Groq Whisper Large-v3 AI.</p>
+                        </div>
+                        <button id="retranscribeBtn" class="btn secondary small">Re-run with Whisper Large-v3</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            TikTok Transcript Retriever • Powered by Pure Go Standard Library & Whisper Large-v3
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js?v=3.3"></script>
+</body>
+</html>

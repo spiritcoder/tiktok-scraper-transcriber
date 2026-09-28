@@ -1,0 +1,41 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+transcriber
+transcriber.exe
+
+# Downloaded tool binaries
+bin/*.exe
+bin/yt-dlp
+bin/yt-dlp.exe
+
+# Temporary files and directories
+tmp/
+*.tmp
+*.log
+
+# Environment variables and secrets
+.env
+.env.local
+*.env
+
+# IDE and Editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# User generated outputs (preserve doc files)
+*.txt
+!README.md
