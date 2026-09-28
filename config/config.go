@@ -12,24 +12,27 @@ import (
 )
 
 type Config struct {
-	GroqAPIKey string
-	Port       string
-	YtDlpPath  string
-	TempDir    string
+	GroqAPIKey     string
+	DeepSeekAPIKey string
+	Port           string
+	YtDlpPath      string
+	TempDir        string
 }
 
 func LoadConfig() *Config {
 	apiKey := os.Getenv("GROQ_API_KEY")
+	deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
 	tempDir := filepath.Join("tmp")
 	_ = os.MkdirAll(tempDir, 0755)
 
 	ytDlpPath := ensureYtDlp()
 
 	return &Config{
-		GroqAPIKey: apiKey,
-		Port:       "8085",
-		YtDlpPath:  ytDlpPath,
-		TempDir:    tempDir,
+		GroqAPIKey:     apiKey,
+		DeepSeekAPIKey: deepseekKey,
+		Port:           "8085",
+		YtDlpPath:      ytDlpPath,
+		TempDir:        tempDir,
 	}
 }
 

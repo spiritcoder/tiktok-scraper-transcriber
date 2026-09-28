@@ -35,7 +35,7 @@ func (r *Runner) RunVideo(videoURL string, forceWhisper bool, outFile string) er
 	fmt.Println("========================================================")
 
 	fmt.Println("[Step 1] Processing video transcript...")
-	result, err := r.engine.Transcribe(videoURL, forceWhisper, r.cfg.GroqAPIKey)
+	result, err := r.engine.Transcribe(videoURL, forceWhisper, r.cfg.GroqAPIKey, "", "", true)
 	if err != nil {
 		return fmt.Errorf("transcription failed: %w", err)
 	}

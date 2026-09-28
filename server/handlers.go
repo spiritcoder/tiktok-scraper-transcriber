@@ -44,6 +44,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/profile", s.handleProfile)
 	mux.HandleFunc("/api/transcribe", s.handleTranscribe)
 	mux.HandleFunc("/api/generate-title", s.handleGenerateTitle)
+	mux.HandleFunc("/api/generate-draft", s.handleGenerateDraft)
 
 	return mux
 }
@@ -55,12 +56,20 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		HasEnvKey bool
+		HasEnvKey         bool
+		HasEnvDeepSeekKey bool
 	}{
-		HasEnvKey: s.cfg.GroqAPIKey != "",
+		HasEnvKey:         s.cfg.GroqAPIKey != "",
+		HasEnvDeepSeekKey: s.cfg.DeepSeekAPIKey != "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Dynamic template parsing for immediate UI reload on edit
+	tmpl, err := template.ParseGlob("templates/*.html")
+	if err == nil {
+		_ = tmpl.ExecuteTemplate(w, "index.html", data)
+		return
+	}
 	_ = s.templates.ExecuteTemplate(w, "index.html", data)
 }
 
@@ -96,9 +105,12 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 type TranscribeRequest struct {
-	URL          string `json:"url"`
-	ForceWhisper bool   `json:"force_whisper"`
-	GroqKey      string `json:"groq_key"`
+	URL                   string `json:"url"`
+	ForceWhisper          bool   `json:"force_whisper"`
+	GroqKey               string `json:"groq_key"`
+	Prompt                string `json:"prompt"`
+	Language              string `json:"language"`
+	IncludeMetadataPrompt bool   `json:"include_metadata_prompt"`
 }
 
 func (s *Server) handleTranscribe(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +136,7 @@ func (s *Server) handleTranscribe(w http.ResponseWriter, r *http.Request) {
 		apiKey = strings.TrimSpace(req.GroqKey)
 	}
 
-	result, err := s.engine.Transcribe(req.URL, req.ForceWhisper, apiKey)
+	result, err := s.engine.Transcribe(req.URL, req.ForceWhisper, apiKey, req.Prompt, req.Language, req.IncludeMetadataPrompt)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
@@ -172,6 +184,48 @@ func (s *Server) handleGenerateTitle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":  true,
 		"ai_title": title,
+	})
+}
+
+type GenerateDraftRequest struct {
+	Transcript       string `json:"transcript"`
+	VideoTitle       string `json:"video_title"`
+	VideoDescription string `json:"video_description"`
+	ResearchPrompt   string `json:"research_prompt"`
+	DeepSeekKey      string `json:"deepseek_key"`
+}
+
+func (s *Server) handleGenerateDraft(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req GenerateDraftRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid request body"})
+		return
+	}
+
+	apiKey := s.cfg.DeepSeekAPIKey
+	if req.DeepSeekKey != "" {
+		apiKey = strings.TrimSpace(req.DeepSeekKey)
+	}
+
+	if apiKey == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "DeepSeek API key required for draft generation"})
+		return
+	}
+
+	draft, err := transcriber.GenerateDraft(req.Transcript, req.VideoTitle, req.VideoDescription, req.ResearchPrompt, apiKey)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"draft":   draft,
 	})
 }
 

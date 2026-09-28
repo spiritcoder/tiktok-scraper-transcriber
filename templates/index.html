@@ -7,13 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=3.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=15.0">
 </head>
 <body>
-    <!-- Background glow accents -->
-    <div class="ambient-glow glow-1"></div>
-    <div class="ambient-glow glow-2"></div>
-
     <div class="app-container">
         <!-- Header -->
         <header class="navbar">
@@ -28,32 +24,61 @@
             </div>
 
             <div class="nav-actions">
-                <button id="apiKeyBtn" class="pill-btn secondary" title="Configure Groq API Key">
-                    <span class="key-indicator {{if .HasEnvKey}}active{{end}}" id="keyIndicator"></span>
-                    <span id="keyLabel">{{if .HasEnvKey}}Groq Key Active{{else}}Set Groq Key{{end}}</span>
+                <button id="apiKeyBtn" class="pill-btn secondary" title="Configure API Keys & Whisper Speech Recognition">
+                    <span class="key-indicator {{if or .HasEnvKey .HasEnvDeepSeekKey}}active{{end}}" id="keyIndicator"></span>
+                    <span id="keyLabel">API & Whisper Settings</span>
                 </button>
             </div>
         </header>
 
-        <!-- API Key Drawer Modal -->
+        <!-- API Settings Modal -->
         <div id="keyModal" class="modal-backdrop hidden">
             <div class="modal-card">
                 <div class="modal-header">
-                    <h3>Groq API Key Configuration</h3>
+                    <h3>API Settings</h3>
                     <button class="close-btn" id="closeKeyModal">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted">Used for instant <strong>AI Title Generation (Llama 3.1)</strong> and <strong>Whisper Large-v3 AI</strong> speech recognition. Groq provides this 100% free with no credit card required.</p>
-                    <p style="margin: 0.6rem 0 1rem 0;">
-                        <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: underline;">Click here to get a free Groq API Key at console.groq.com/keys</a>
-                    </p>
-                    <div class="form-group">
-                        <label for="groqKeyInput">Groq API Key (starts with <code>gsk_...</code>):</label>
-                        <input type="password" id="groqKeyInput" class="custom-input" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx">
+                    <!-- Groq Key -->
+                    <div class="settings-section" style="margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <label for="groqKeyInput" style="font-weight: 700; font-size: 0.88rem;">Groq API Key</label>
+                            <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); font-size: 0.76rem; text-decoration: underline;">Get free key</a>
+                        </div>
+                        <input type="password" id="groqKeyInput" class="custom-input" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" style="margin-top: 0.35rem;">
+                    </div>
+
+                    <!-- DeepSeek Key -->
+                    <div class="settings-section" style="margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <label for="deepseekKeyInput" style="font-weight: 700; font-size: 0.88rem;">DeepSeek API Key</label>
+                            <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: var(--accent); font-size: 0.76rem; text-decoration: underline;">Get key</a>
+                        </div>
+                        <input type="password" id="deepseekKeyInput" class="custom-input" placeholder="sk-xxxxxxxxxxxxxxxxxxxx" style="margin-top: 0.35rem;">
+                    </div>
+
+                    <!-- Whisper Vocabulary Prompt -->
+                    <div class="settings-section" style="padding-top: 1rem; border-top: 1px solid var(--card-border);">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <label for="modalWhisperPromptInput" style="font-weight: 700; font-size: 0.88rem;">Whisper Bias Prompt</label>
+                            <button id="modalLoadIgboPresetBtn" type="button" class="pill-btn preset-btn-pulse" style="font-size: 0.75rem; padding: 0.25rem 0.65rem;">+ Igbo Preset</button>
+                        </div>
+                        <textarea id="modalWhisperPromptInput" class="whisper-textarea" style="min-height: 60px;" placeholder="e.g. Asusu Igbo, Ndi Igbo, omenala Igbo, Ala Igbo..."></textarea>
+
+                        <div style="margin-top: 0.75rem;">
+                            <label for="modalWhisperLangSelect" style="font-weight: 700; font-size: 0.82rem; display: block; margin-bottom: 0.25rem;">Language</label>
+                            <select id="modalWhisperLangSelect" class="custom-select" style="width: 100%;">
+                                <option value="auto">Auto-detect</option>
+                                <option value="en">English (en)</option>
+                                <option value="yo">Yoruba (yo)</option>
+                                <option value="ha">Hausa (ha)</option>
+                                <option value="fr">French (fr)</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="saveKeyBtn" class="btn primary">Save Key & Generate</button>
+                    <button id="saveKeyBtn" class="btn primary">Save Settings</button>
                 </div>
             </div>
         </div>
@@ -61,15 +86,14 @@
         <!-- Hero Input Section -->
         <main class="main-content">
             <section class="hero-section">
-                <div class="hero-badge">Pure Go Standard Library • Zero Frameworks</div>
-                <h1 class="hero-title">Retrieve Accurate Transcripts from TikTok Creators</h1>
-                <p class="hero-description">Paste any TikTok video link to unlock that creator's full video catalog, search keywords, and extract speech transcripts with Groq Whisper Large-v3 AI.</p>
+                <h1 class="hero-title">TikTok Transcriber & Studio</h1>
+                <p class="hero-description">Extract speech transcripts and generate structured articles from TikTok videos.</p>
 
                 <div class="search-card">
                     <div class="input-row">
                         <div class="input-wrapper">
                             <span class="input-icon" style="font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">URL</span>
-                            <input type="text" id="urlInput" class="search-input" placeholder="Paste any TikTok video link (e.g., https://vt.tiktok.com/... or /video/...)" autocomplete="off">
+                            <input type="text" id="urlInput" class="search-input" placeholder="Paste any TikTok video link (e.g. https://vt.tiktok.com/...)" autocomplete="off">
                             <button id="clearInput" class="clear-input-btn hidden">&times;</button>
                         </div>
                         <button id="submitBtn" class="btn primary main-action-btn">
@@ -78,25 +102,52 @@
                         </button>
                     </div>
 
-                    <div class="search-tip">
-                        <span class="tip-icon" style="font-size: 0.8rem; font-weight: 700; color: var(--primary); text-transform: uppercase;">Note:</span>
-                        <span><strong>Important:</strong> Paste <strong>any video link</strong> from a creator. TikTok blocks direct profile handles (<code>@username</code>), but any single video link instantly unlocks their entire video catalog!</span>
-                    </div>
-
                     <div class="options-bar">
                         <div class="toggle-group">
                             <label class="toggle-container">
                                 <input type="checkbox" id="forceWhisperToggle">
                                 <span class="toggle-slider"></span>
-                                <span class="toggle-label">Always use Whisper Large-v3 AI (bypasses TikTok captions)</span>
+                                <span class="toggle-label">Force Whisper Large-v3</span>
                             </label>
                         </div>
                         <div class="quick-examples">
                             <span class="examples-label">Try:</span>
-                            <button class="example-chip" data-url="https://vt.tiktok.com/ZSb6P1BSu/">Sample Creator (112 vids)</button>
+                            <button class="example-chip" data-url="https://vt.tiktok.com/ZSb6P1BSu/">Sample Creator</button>
                             <button class="example-chip" data-url="https://www.tiktok.com/@scout2015/video/6718335390845095173">Single Video</button>
                         </div>
                     </div>
+
+                    <!-- Collapsible Whisper Vocabulary Tuning -->
+                    <details class="whisper-accordion">
+                        <summary class="whisper-accordion-summary">
+                            <div class="whisper-summary-title">
+                                <span>Whisper Speech Settings (Optional)</span>
+                                <span class="whisper-badge-tag">Large-v3</span>
+                            </div>
+                            <span class="whisper-summary-chevron">&rsaquo;</span>
+                        </summary>
+                        <div class="whisper-accordion-body">
+                            <div class="whisper-config-fields">
+                                <div class="whisper-lang-wrap">
+                                    <label for="whisperLangSelect" class="whisper-field-label">Language</label>
+                                    <select id="whisperLangSelect" class="custom-select" style="height: 38px;">
+                                        <option value="auto">Auto-detect (Recommended)</option>
+                                        <option value="en">English (en)</option>
+                                        <option value="yo">Yoruba (yo)</option>
+                                        <option value="ha">Hausa (ha)</option>
+                                        <option value="fr">French (fr)</option>
+                                    </select>
+                                </div>
+                                <div class="whisper-prompt-wrap">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                                        <label for="whisperPromptInput" class="whisper-field-label">Vocabulary Prompt</label>
+                                        <button id="loadIgboPresetBtn" type="button" class="mini-btn preset-accent" title="Load Igbo vocabulary preset">+ Igbo Preset</button>
+                                    </div>
+                                    <textarea id="whisperPromptInput" class="whisper-textarea" style="min-height: 48px; font-size: 0.8rem;" placeholder="Comma-separated vocabulary (e.g. Asusu Igbo, Ndi Igbo, omenala Igbo, Ala Igbo, Chi...)"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </section>
 
@@ -165,69 +216,175 @@
             </section>
         </main>
 
-        <!-- Transcript Results Modal / Drawer -->
+        <!-- Transcript & Editorial Studio Modal -->
         <div id="transcriptModal" class="modal-backdrop hidden">
-            <div class="modal-card transcript-modal-card">
-                <div class="modal-header">
-                    <div class="modal-title-wrap">
-                        <div class="badge-cluster">
-                            <span class="source-badge" id="sourceBadge">Source</span>
-                            <span class="meta-badge" id="langBadge">Lang</span>
-                            <span class="meta-badge" id="wordsBadge">0 words</span>
-                            <span class="meta-badge" id="durationBadge">0s</span>
-                        </div>
-                        <h3 id="transcriptVideoTitle" class="video-modal-title">Video Transcript</h3>
+            <div class="modal-card transcript-modal-card studio-card-light">
+                <!-- Modal Top Header -->
+                <div class="modal-header studio-light-header">
+                    <div class="studio-header-title-wrap">
+                        <h3 class="studio-main-title">Transcription Studio</h3>
+                        <span class="studio-header-sub" id="headerVideoTitle">TikTok Video</span>
                     </div>
-                    <button class="close-btn" id="closeTranscriptModal">&times;</button>
+                    <div class="studio-header-right">
+                        <span id="activeSourceChip" class="studio-source-chip">Whisper Large-v3</span>
+                        <button class="close-btn studio-close-btn" id="closeTranscriptModal">&times;</button>
+                    </div>
                 </div>
 
-                <div class="modal-body transcript-body">
-                    <!-- Live Modal Loading State -->
-                    <div id="modalLoadingBox" class="modal-loading-box hidden">
-                        <div class="spinner large"></div>
-                        <h4 id="modalLoadingTitle">Transcribing Video...</h4>
-                        <p id="modalLoadingSub">Extracting speech with Whisper Large-v3 AI</p>
-                    </div>
-
-                    <!-- AI Generated Title Card -->
-                    <div id="aiTitleCard" class="ai-title-card hidden">
-                        <div class="ai-title-top">
-                            <span class="ai-title-tag">AI Generated Title</span>
-                            <button id="regenerateTitleBtn" class="regen-btn" title="Generate alternate title">Regenerate</button>
-                        </div>
-                        <h2 id="aiTitleText" class="ai-title-heading"></h2>
-                    </div>
-
-                    <div class="transcript-toolbar" id="transcriptToolbar">
-                        <div class="view-toggles">
-                            <button class="toggle-btn active" id="viewParagraphsBtn">Clean Paragraph</button>
-                            <button class="toggle-btn" id="viewTimestampsBtn">Timestamps</button>
-                        </div>
-                        <div class="transcript-actions">
-                            <button class="icon-btn" id="copyBtn" title="Copy to clipboard">
-                                <span id="copyText">Copy</span>
-                            </button>
-                            <button class="icon-btn" id="downloadTxtBtn" title="Download Plain Text">
-                                .TXT
-                            </button>
-                            <button class="icon-btn" id="downloadJsonBtn" title="Download JSON with timestamps">
-                                .JSON
-                            </button>
+                <!-- Modal Body: 2-Column Split Studio Layout -->
+                <div class="modal-body transcript-body studio-light-body">
+                    <!-- Centered Modal Loading State Overlay -->
+                    <div id="modalLoadingBox" class="modal-loading-box-overlay hidden">
+                        <div class="loading-box-content">
+                            <div class="spinner large-spinner"></div>
+                            <h3 id="modalLoadingTitle">Transcribing Video...</h3>
+                            <p id="modalLoadingSub">Extracting speech with Whisper Large-v3 AI</p>
                         </div>
                     </div>
 
-                    <!-- Transcript Content Display -->
-                    <div class="transcript-content-box" id="transcriptContent">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div class="studio-grid-light" id="modalVideoMetaCard">
+                        <!-- Left Sidebar: Context & Whisper Vocabulary Tuning -->
+                        <aside class="studio-sidebar-light" id="modalSidebar">
+                            <!-- Video Title & Link -->
+                            <div class="studio-sidebar-card">
+                                <div class="studio-card-top">
+                                    <span class="studio-label">Video</span>
+                                    <a id="modalVideoLink" href="#" target="_blank" class="studio-ext-link" title="Open video on TikTok">Watch on TikTok &nearr;</a>
+                                </div>
+                                <h4 id="transcriptVideoTitle" class="studio-title-text">Video Title</h4>
+                            </div>
 
-                    <!-- Re-transcribe with Whisper Banner -->
-                    <div id="retranscribeBanner" class="retranscribe-banner hidden">
-                        <div>
-                            <strong>Want higher AI accuracy?</strong>
-                            <p>This transcript was pulled from TikTok captions. You can re-run it with Groq Whisper Large-v3 AI.</p>
-                        </div>
-                        <button id="retranscribeBtn" class="btn secondary small">Re-run with Whisper Large-v3</button>
+                            <!-- Creator Caption -->
+                            <div class="studio-sidebar-card" id="modalCaptionBox">
+                                <div class="studio-card-top">
+                                    <span class="studio-label">Creator Caption</span>
+                                    <div class="studio-card-actions">
+                                        <button id="copyCaptionBtn" type="button" class="mini-btn-light" title="Copy caption text">Copy</button>
+                                        <button id="addCaptionToWhisperBtn" type="button" class="mini-btn-light" title="Append caption to Whisper prompt">+ Add to Whisper</button>
+                                    </div>
+                                </div>
+                                <div id="transcriptVideoCaption" class="studio-caption-area">No caption available for this video.</div>
+                            </div>
+
+                            <!-- Whisper Vocabulary Tuning -->
+                            <div class="studio-sidebar-card studio-tuning-card" id="modalWhisperTuningBox">
+                                <div class="studio-card-top">
+                                    <span class="studio-label">Whisper Vocabulary</span>
+                                    <button id="modalInlineIgboBtn" type="button" class="mini-btn-light accent" title="Load Igbo vocabulary preset">+ Igbo</button>
+                                </div>
+                                <textarea id="modalInlineWhisperPrompt" class="studio-prompt-input" rows="3" placeholder="Acoustic spelling bias (e.g. Asusu Igbo, Ndi Igbo, omenala Igbo...)"></textarea>
+                                <div class="studio-card-footer">
+                                    <button id="modalInlineClearPromptBtn" type="button" class="mini-btn-light" title="Clear prompt">Clear</button>
+                                    <button id="modalRunWhisperBtn" type="button" class="btn primary small full-width-btn">Re-transcribe with Whisper</button>
+                                </div>
+                            </div>
+                        </aside>
+
+                        <!-- Right Area: Step-by-Step Workflow & Content -->
+                        <section class="studio-main-light" id="studioMain">
+                            <!-- Step Navigation & Action Bar -->
+                            <div class="studio-steps-bar-light" id="transcriptToolbar">
+                                <div class="studio-step-tabs-light">
+                                    <button class="step-tab-btn active" id="stepTranscriptBtn" type="button" title="View transcript">
+                                        <span class="step-num-pill">1</span>
+                                        <span>Transcript</span>
+                                    </button>
+                                    <button class="step-tab-btn" id="viewDraftBtn" type="button" title="View DeepSeek article draft">
+                                        <span class="step-num-pill">2</span>
+                                        <span>Article Draft (DeepSeek)</span>
+                                    </button>
+                                </div>
+
+                                <div class="studio-actions-group">
+                                    <!-- View toggles for Step 1 -->
+                                    <div class="step1-view-toggles" id="step1ViewToggles">
+                                        <button class="sub-toggle-pill active" id="viewParagraphsBtn" type="button">Read</button>
+                                        <button class="sub-toggle-pill" id="viewEditBtn" type="button">Edit Transcript</button>
+                                        <button class="sub-toggle-pill" id="viewTimestampsBtn" type="button">Timestamps</button>
+                                    </div>
+
+                                    <div class="actions-divider" id="actionsDivider"></div>
+
+                                    <div class="transcript-actions-light">
+                                        <button class="action-btn-light" id="copyBtn" title="Copy text">
+                                            <span id="copyText">Copy</span>
+                                        </button>
+                                        <button class="action-btn-light" id="downloadTxtBtn" title="Download Plain Text">.TXT</button>
+                                        <button class="action-btn-light" id="downloadJsonBtn" title="Download JSON with timestamps">.JSON</button>
+                                        <button class="action-btn-light hidden" id="downloadMdBtn" title="Download Article Draft as Markdown">.MD</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Source Comparison Switcher (Whisper vs TikTok Captions) -->
+                            <div class="source-comparison-bar hidden" id="sourceComparisonBar">
+                                <div class="comparison-label">
+                                    <span>Transcript Version:</span>
+                                </div>
+                                <div class="comparison-switch-group">
+                                    <button type="button" id="switchWhisperBtn" class="compare-btn active">Groq Whisper Large-v3 (AI)</button>
+                                    <button type="button" id="switchTikTokBtn" class="compare-btn">Original TikTok Captions</button>
+                                </div>
+                                <span class="comparison-hint" id="comparisonHint">Compare AI transcription vs original TikTok captions</span>
+                            </div>
+
+                            <!-- AI Headline Card (Step 1) -->
+                            <div id="aiTitleCard" class="ai-title-card-light hidden">
+                                <div class="ai-title-light-top">
+                                    <span class="ai-title-badge-light">AI Headline</span>
+                                    <button id="regenerateTitleBtn" class="regen-btn-light" title="Generate alternate headline">Regenerate</button>
+                                </div>
+                                <h2 id="aiTitleText" class="ai-title-heading-light"></h2>
+                            </div>
+
+                            <!-- Main Scrollable Canvas -->
+                            <div class="studio-canvas-light">
+                                <!-- Step 1: Transcript Body (Paragraphs, Editor, or Timestamps) -->
+                                <div class="transcript-content-light" id="transcriptContent">
+                                    <!-- Populated by JS -->
+                                </div>
+
+                                <!-- Step 2: Article Draft Body -->
+                                <div class="draft-content-light hidden" id="draftContainer">
+                                    <div class="draft-prompt-card-light" id="draftEmptyState">
+                                        <h4>Generate Article Draft with DeepSeek</h4>
+                                        <p class="text-muted-light">Transforms active transcript and context into a human, researched article with cultural insights.</p>
+                                        <div class="draft-research-wrap">
+                                            <label for="draftResearchInput" class="draft-research-label">Research Angle & Focus (Optional)</label>
+                                            <input type="text" id="draftResearchInput" class="custom-input draft-research-input" placeholder="e.g. Focus on Odinani philosophy, pre-colonial history, or clan traditions...">
+                                        </div>
+                                        <button id="generateDraftBtn" class="btn primary" style="margin-top: 0.5rem;">Generate Article Draft</button>
+                                    </div>
+
+                                    <div class="draft-loading-state-light hidden" id="draftLoadingState">
+                                        <div class="spinner large-spinner" style="margin: 0 auto 0.85rem auto;"></div>
+                                        <h4>Composing Article Draft...</h4>
+                                        <p class="text-muted-light">DeepSeek is conducting background research and writing in an engaging human voice</p>
+                                    </div>
+
+                                    <div class="draft-preview-wrap-light hidden" id="draftPreviewWrap">
+                                        <div class="draft-inline-research-bar">
+                                            <input type="text" id="draftInlineResearchInput" class="draft-inline-research-input" placeholder="Optional: Tweak research angle or instructions...">
+                                            <button id="regenerateDraftBtn" class="regen-btn-light" title="Regenerate article draft with research directive">Regenerate</button>
+                                            <button id="toggleRawMdBtn" class="regen-btn-light">Edit Markdown</button>
+                                        </div>
+                                        <div class="draft-rendered-light markdown-body" id="draftRendered"></div>
+                                        <textarea class="draft-raw-light hidden" id="draftRaw" placeholder="Edit article markdown directly..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bottom Subtle Status / Metadata Bar -->
+                            <div class="studio-status-strip" id="transcriptStatusBar">
+                                <span class="status-chip-light" id="sourceBadge">Whisper Large-v3</span>
+                                <span class="status-divider">•</span>
+                                <span class="status-item-light" id="wordsBadge">0 words</span>
+                                <span class="status-divider">•</span>
+                                <span class="status-item-light" id="durationBadge">0s</span>
+                                <span class="status-divider">•</span>
+                                <span class="status-item-light" id="langBadge">Lang: auto</span>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -235,10 +392,10 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            TikTok Transcript Retriever • Powered by Pure Go Standard Library & Whisper Large-v3
+            TikTok Transcriber & Studio • Whisper Large-v3 & DeepSeek V3
         </footer>
     </div>
 
-    <script src="/static/js/app.js?v=3.3"></script>
+    <script src="/static/js/app.js?v=15.0"></script>
 </body>
 </html>

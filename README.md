@@ -15,8 +15,9 @@ A high-performance Go application and sleek web interface to scrape TikTok video
   - **Instant Native Captions**: Reads official TikTok subtitles and auto-captions directly when available with zero API cost.
   - **Groq Whisper Large-v3 Fallback**: Automatically transcribes audio using state-of-the-art AI speech-to-text when native captions are absent or incomplete.
 - **AI Video Title Generation**: Converts descriptions and speech transcripts into clean, readable 3-7 word titles powered by Groq Llama 3.3.
+- **Structured Article Drafts with DeepSeek**: Transforms raw spoken transcripts into authoritative, well-organized article drafts with set-aside headings, background context, detailed breakdown, and key terms via DeepSeek V3 (`deepseek-chat`). Includes in-browser Markdown preview, raw view toggle, and `.md` export.
 - **Real-Time In-Page Search**: Search through video captions, descriptions, and AI titles instantly with match counts, keyword highlighting, and a "Titles Only" vs "All Text" scope toggle.
-- **One-Click Export**: Easily copy transcripts to clipboard or download as text files (.txt).
+- **One-Click Export**: Easily copy transcripts or markdown drafts to clipboard or download as .txt, .json, and .md files.
 - **Modern Web UI & Powerful CLI**: Run as a rich responsive dark-mode Web UI or directly from terminal via CLI flags.
 
 ---
@@ -28,8 +29,11 @@ A high-performance Go application and sleek web interface to scrape TikTok video
    - The application checks for `bin/` or system `PATH`.
    - If not found, it **automatically downloads** the latest official `yt-dlp` release into `bin/` on first run. No manual download is required.
 3. **[Optional] Groq API Key**:
-   - Used for Whisper Large-v3 speech recognition and Llama AI title generation.
-   - Get a free key with no credit card required at [console.groq.com/keys](https://console.groq.com/keys).
+   - Used for Whisper Large-v3 speech recognition and quick AI title generation.
+   - Get a free key at [console.groq.com/keys](https://console.groq.com/keys).
+4. **[Optional] DeepSeek API Key**:
+   - Used for generating structured article drafts with set-aside headings.
+   - Get an API key at [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys). Configurable via UI settings or `DEEPSEEK_API_KEY` environment variable.
 
 ---
 
