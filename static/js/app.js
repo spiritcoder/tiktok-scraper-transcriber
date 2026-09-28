@@ -41,6 +41,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const scopeAllBtn = document.getElementById('scopeAllBtn');
     const scopeTitleBtn = document.getElementById('scopeTitleBtn');
 
+    // Profile Section Tabs & Topics Elements
+    const tabVideosBtn = document.getElementById('tabVideosBtn');
+    const tabTopicsBtn = document.getElementById('tabTopicsBtn');
+    const tabVideosCount = document.getElementById('tabVideosCount');
+    const tabTopicsBadge = document.getElementById('tabTopicsBadge');
+    const allVideosContainer = document.getElementById('allVideosContainer');
+    const topicsContainer = document.getElementById('topicsContainer');
+    const topicsEmptyState = document.getElementById('topicsEmptyState');
+    const topicsLoadingState = document.getElementById('topicsLoadingState');
+    const topicsContent = document.getElementById('topicsContent');
+    const topicsGrid = document.getElementById('topicsGrid');
+    const analyzeTopicsBtn = document.getElementById('analyzeTopicsBtn');
+    const reanalyzeTopicsBtn = document.getElementById('reanalyzeTopicsBtn');
+    const topicsSpinner = document.getElementById('topicsSpinner');
+    const analyzeTopicsBtnText = document.getElementById('analyzeTopicsBtnText');
+    const topicsCountHeading = document.getElementById('topicsCountHeading');
+
     // Transcript Modal
     const transcriptModal = document.getElementById('transcriptModal');
     const closeTranscriptModal = document.getElementById('closeTranscriptModal');
@@ -130,6 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let rawMdVisible = false;
     let allProfileVideos = [];
     let searchScope = 'all'; // 'all' | 'titles'
+    let discoveredTopics = [];
+    let cachedTranscripts = {};
+    let currentTopicContext = null;
 
     // Load saved API keys from localStorage
     const savedGroqKey = localStorage.getItem('groq_api_key');
@@ -448,6 +468,15 @@ document.addEventListener('DOMContentLoaded', () => {
         allProfileVideos = vids;
         profileMeta.textContent = `Found ${vids.length} videos from this creator`;
         
+        if (tabVideosCount) tabVideosCount.textContent = vids.length;
+        if (tabTopicsBadge) tabTopicsBadge.textContent = 'New';
+        discoveredTopics = [];
+        if (topicsEmptyState) topicsEmptyState.classList.remove('hidden');
+        if (topicsLoadingState) topicsLoadingState.classList.add('hidden');
+        if (topicsContent) topicsContent.classList.add('hidden');
+        if (topicsGrid) topicsGrid.innerHTML = '';
+        switchProfileTab('videos');
+
         // Reset and init search input
         videoSearchInput.value = '';
         clearVideoSearch.classList.add('hidden');
@@ -617,6 +646,341 @@ document.addEventListener('DOMContentLoaded', () => {
         videoSearchInput.focus();
     });
 
+    // Profile Tab Switching
+    function switchProfileTab(tabName) {
+        if (!tabVideosBtn || !tabTopicsBtn) return;
+        if (tabName === 'videos') {
+            tabVideosBtn.classList.add('active');
+            tabTopicsBtn.classList.remove('active');
+            if (allVideosContainer) allVideosContainer.classList.remove('hidden');
+            if (topicsContainer) topicsContainer.classList.add('hidden');
+        } else if (tabName === 'topics') {
+            tabTopicsBtn.classList.add('active');
+            tabVideosBtn.classList.remove('active');
+            if (topicsContainer) topicsContainer.classList.remove('hidden');
+            if (allVideosContainer) allVideosContainer.classList.add('hidden');
+        }
+    }
+
+    if (tabVideosBtn) {
+        tabVideosBtn.addEventListener('click', () => switchProfileTab('videos'));
+    }
+    if (tabTopicsBtn) {
+        tabTopicsBtn.addEventListener('click', () => switchProfileTab('topics'));
+    }
+
+    // Discover & Cluster Profile Topics
+    async function analyzeProfileTopics() {
+        if (!allProfileVideos || allProfileVideos.length === 0) {
+            alert('Please load a creator profile first by entering a TikTok link above.');
+            return;
+        }
+
+        const deepseekKey = getDeepSeekKey();
+        if (!deepseekKey) {
+            keyModal.classList.remove('hidden');
+            deepseekKeyInput.focus();
+            return;
+        }
+
+        if (topicsEmptyState) topicsEmptyState.classList.add('hidden');
+        if (topicsContent) topicsContent.classList.add('hidden');
+        if (topicsLoadingState) topicsLoadingState.classList.remove('hidden');
+        if (analyzeTopicsBtn) analyzeTopicsBtn.disabled = true;
+        if (topicsSpinner) topicsSpinner.classList.remove('hidden');
+        if (analyzeTopicsBtnText) analyzeTopicsBtnText.textContent = 'Analyzing...';
+
+        const payloadVideos = allProfileVideos.map(v => ({
+            id: String(v.id || v.ID || ''),
+            url: v.url || v.URL || '',
+            title: stripHashtags(v.title || v.Title || ''),
+            desc: stripHashtags(v.description || v.Description || '')
+        }));
+
+        const creator = (profileUsername ? profileUsername.textContent.replace('@', '').trim() : '') || 'creator';
+
+        try {
+            const resp = await fetch('/api/profile-topics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    creator: creator,
+                    videos: payloadVideos,
+                    deepseek_key: deepseekKey
+                })
+            });
+
+            const data = await resp.json();
+            if (!resp.ok || !data.success) {
+                throw new Error(data.error || 'Failed to analyze creator topics');
+            }
+
+            discoveredTopics = data.topics || [];
+            if (tabTopicsBadge) tabTopicsBadge.textContent = String(discoveredTopics.length);
+            if (topicsCountHeading) topicsCountHeading.textContent = `Discovered Topics (${discoveredTopics.length})`;
+
+            renderTopicCards(discoveredTopics);
+
+            if (topicsLoadingState) topicsLoadingState.classList.add('hidden');
+            if (topicsContent) topicsContent.classList.remove('hidden');
+        } catch (err) {
+            if (topicsLoadingState) topicsLoadingState.classList.add('hidden');
+            if (topicsEmptyState) topicsEmptyState.classList.remove('hidden');
+            alert('Error discovering topics: ' + err.message);
+        } finally {
+            if (analyzeTopicsBtn) analyzeTopicsBtn.disabled = false;
+            if (topicsSpinner) topicsSpinner.classList.add('hidden');
+            if (analyzeTopicsBtnText) analyzeTopicsBtnText.textContent = 'Analyze Profile Topics';
+        }
+    }
+
+    if (analyzeTopicsBtn) {
+        analyzeTopicsBtn.addEventListener('click', analyzeProfileTopics);
+    }
+    if (reanalyzeTopicsBtn) {
+        reanalyzeTopicsBtn.addEventListener('click', analyzeProfileTopics);
+    }
+
+    // Render Discovered Topic Cards
+    function renderTopicCards(topics) {
+        if (!topicsGrid) return;
+        topicsGrid.innerHTML = '';
+
+        if (!topics || topics.length === 0) {
+            topicsGrid.innerHTML = '<p class="text-muted" style="padding: 2rem; text-align: center; grid-column: 1 / -1;">No coherent topics could be grouped for this catalog.</p>';
+            return;
+        }
+
+        topics.forEach((topic, idx) => {
+            const card = document.createElement('div');
+            card.className = 'topic-card';
+
+            const rawIds = topic.video_ids || [];
+            const idSet = new Set(rawIds.map(id => String(id)));
+            let matchedVids = allProfileVideos.filter(v => idSet.has(String(v.id || v.ID || '')));
+
+            if (matchedVids.length === 0 && rawIds.length > 0) {
+                rawIds.forEach(rid => {
+                    const found = allProfileVideos.find(v => String(v.id || v.ID || '') === String(rid) || (v.url && v.url.includes(String(rid))));
+                    if (found && !matchedVids.includes(found)) matchedVids.push(found);
+                });
+            }
+
+            if (matchedVids.length === 0) {
+                matchedVids = allProfileVideos.slice(0, 2);
+            }
+
+            const videoCountLabel = `${matchedVids.length} ${matchedVids.length === 1 ? 'Video' : 'Videos'}`;
+
+            let chipsHtml = '';
+            matchedVids.slice(0, 3).forEach(v => {
+                const thumb = v.thumbnail || v.Thumbnail || '';
+                const vTitle = stripHashtags(v.title || v.Title || 'TikTok Video');
+                chipsHtml += `
+                    <div class="topic-video-chip">
+                        <img class="topic-chip-thumb" src="${thumb}" alt="Thumbnail" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%23222%22/></svg>'">
+                        <span class="topic-chip-title">${escapeHTML(vTitle)}</span>
+                    </div>
+                `;
+            });
+
+            if (matchedVids.length > 3) {
+                chipsHtml += `<div style="font-size: 0.76rem; color: #64748B; padding-left: 0.25rem;">+ ${matchedVids.length - 3} more videos in this topic</div>`;
+            }
+
+            card.innerHTML = `
+                <div class="topic-card-top">
+                    <span class="topic-badge-count">${videoCountLabel}</span>
+                    <h4 class="topic-title">${escapeHTML(topic.title || 'Untitled Topic')}</h4>
+                </div>
+                <p class="topic-desc">${escapeHTML(topic.description || '')}</p>
+                <div class="topic-videos-preview">
+                    ${chipsHtml}
+                </div>
+                <div class="topic-card-actions">
+                    <button class="btn-topic-draft" data-topic-idx="${idx}">
+                        <span>Generate Article Draft</span>
+                    </button>
+                </div>
+            `;
+
+            const draftBtn = card.querySelector('.btn-topic-draft');
+            if (draftBtn) {
+                draftBtn.addEventListener('click', () => {
+                    generateTopicDraft(topic, matchedVids, draftBtn);
+                });
+            }
+
+            topicsGrid.appendChild(card);
+        });
+    }
+
+    // Generate Synthesized Topic Draft
+    async function generateTopicDraft(topic, matchedVideos, triggerBtn = null) {
+        const deepseekKey = getDeepSeekKey();
+        if (!deepseekKey) {
+            keyModal.classList.remove('hidden');
+            deepseekKeyInput.focus();
+            return;
+        }
+
+        let origBtnHtml = '';
+        if (triggerBtn) {
+            origBtnHtml = triggerBtn.innerHTML;
+            triggerBtn.innerHTML = '<span>Synthesizing Draft...</span>';
+            triggerBtn.classList.add('loading');
+            triggerBtn.disabled = true;
+        }
+
+        const topicVideoDetails = matchedVideos.map(v => {
+            const vidId = String(v.id || v.ID || '');
+            const vidUrl = v.url || v.URL || '';
+            const cached = cachedTranscripts[vidId] || cachedTranscripts[vidUrl];
+            return {
+                id: vidId,
+                title: stripHashtags(v.title || v.Title || ''),
+                desc: stripHashtags(v.description || v.Description || ''),
+                transcript: cached ? (cached.full_text || '') : ''
+            };
+        });
+
+        let combinedText = '';
+        topicVideoDetails.forEach((vd, i) => {
+            combinedText += `=== VIDEO ${i + 1}: ${vd.title || 'Video ' + (i + 1)} ===\n`;
+            if (vd.desc) {
+                combinedText += `Caption: ${vd.desc}\n`;
+            }
+            if (vd.transcript) {
+                combinedText += `Spoken Transcript:\n${vd.transcript}\n\n`;
+            } else {
+                combinedText += `(Spoken transcript summarized from metadata. You can edit this text anytime.)\n\n`;
+            }
+        });
+
+        currentTopicContext = {
+            topic: topic,
+            matchedVideos: matchedVideos,
+            topicVideoDetails: topicVideoDetails,
+            customCombinedTranscript: ''
+        };
+        currentVideoURL = '';
+        savedTikTokResult = null;
+        savedWhisperResult = null;
+        activeTranscriptSource = 'topic';
+        currentDraft = '';
+        rawMdVisible = false;
+
+        currentResult = {
+            video_title: topic.title,
+            video_desc: topic.description,
+            full_text: combinedText.trim(),
+            word_count: countWords(combinedText),
+            source: 'topic_cluster',
+            language: 'Multi-Source',
+            duration: 0
+        };
+
+        if (headerVideoTitle) headerVideoTitle.textContent = topic.title;
+        if (transcriptVideoTitle) transcriptVideoTitle.textContent = topic.title;
+        if (modalVideoLink) modalVideoLink.style.display = 'none';
+        if (transcriptVideoCaption) transcriptVideoCaption.textContent = topic.description || '';
+        if (activeSourceChip) activeSourceChip.textContent = `Topic Synthesis (${matchedVideos.length} Videos)`;
+        if (sourceBadge) sourceBadge.textContent = 'Topic Cluster';
+        if (langBadge) langBadge.textContent = 'DeepSeek R1';
+        if (wordsBadge) wordsBadge.textContent = `${countWords(combinedText)} source words`;
+        if (durationBadge) durationBadge.classList.add('hidden');
+        if (aiTitleCard) aiTitleCard.classList.add('hidden');
+        if (sourceComparisonBar) sourceComparisonBar.classList.add('hidden');
+        if (retranscribeBanner) retranscribeBanner.classList.add('hidden');
+
+        currentViewMode = 'draft';
+        if (stepTranscriptBtn) stepTranscriptBtn.classList.remove('active');
+        if (viewDraftBtn) viewDraftBtn.classList.add('active');
+        if (step1ViewToggles) step1ViewToggles.classList.add('hidden');
+        if (transcriptContent) transcriptContent.classList.add('hidden');
+        if (draftContainer) draftContainer.classList.remove('hidden');
+        if (draftEmptyState) draftEmptyState.classList.add('hidden');
+        if (draftPreviewWrap) draftPreviewWrap.classList.add('hidden');
+        if (draftLoadingState) draftLoadingState.classList.remove('hidden');
+        if (downloadMdBtn) downloadMdBtn.classList.remove('hidden');
+        if (downloadTxtBtn) downloadTxtBtn.classList.add('hidden');
+        if (downloadJsonBtn) downloadJsonBtn.classList.add('hidden');
+        if (copyText) copyText.textContent = 'Copy Draft';
+
+        transcriptModal.classList.remove('hidden');
+
+        try {
+            await fetchTopicArticleDraft();
+        } finally {
+            if (triggerBtn) {
+                triggerBtn.innerHTML = origBtnHtml;
+                triggerBtn.classList.remove('loading');
+                triggerBtn.disabled = false;
+            }
+        }
+    }
+
+    async function fetchTopicArticleDraft() {
+        if (!currentTopicContext || !currentTopicContext.topic) return;
+
+        const deepseekKey = getDeepSeekKey();
+        if (!deepseekKey) {
+            keyModal.classList.remove('hidden');
+            deepseekKeyInput.focus();
+            return;
+        }
+
+        const researchVal = (draftInlineResearchInput && draftInlineResearchInput.value.trim()) ||
+                            (draftResearchInput && draftResearchInput.value.trim()) || '';
+
+        if (draftResearchInput && !draftResearchInput.value && researchVal) {
+            draftResearchInput.value = researchVal;
+        }
+        if (draftInlineResearchInput && !draftInlineResearchInput.value && researchVal) {
+            draftInlineResearchInput.value = researchVal;
+        }
+
+        if (draftEmptyState) draftEmptyState.classList.add('hidden');
+        if (draftPreviewWrap) draftPreviewWrap.classList.add('hidden');
+        if (draftLoadingState) draftLoadingState.classList.remove('hidden');
+
+        const videosPayload = currentTopicContext.customCombinedTranscript ? [{
+            id: 'combined_sources',
+            title: currentTopicContext.topic.title,
+            desc: currentTopicContext.topic.description,
+            transcript: currentTopicContext.customCombinedTranscript
+        }] : (currentTopicContext.topicVideoDetails || []);
+
+        try {
+            const resp = await fetch('/api/generate-topic-draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topic_title: currentTopicContext.topic.title || '',
+                    topic_desc: currentTopicContext.topic.description || '',
+                    videos: videosPayload,
+                    research_prompt: researchVal,
+                    deepseek_key: deepseekKey
+                })
+            });
+
+            const data = await resp.json();
+            if (data.success && data.draft) {
+                currentDraft = data.draft;
+                if (draftRendered) draftRendered.innerHTML = renderMarkdown(currentDraft);
+                if (draftRaw) draftRaw.value = currentDraft;
+                if (draftLoadingState) draftLoadingState.classList.add('hidden');
+                if (draftPreviewWrap) draftPreviewWrap.classList.remove('hidden');
+            } else {
+                throw new Error(data.error || 'Failed to generate topic article draft');
+            }
+        } catch (err) {
+            if (draftLoadingState) draftLoadingState.classList.add('hidden');
+            if (draftEmptyState) draftEmptyState.classList.remove('hidden');
+            alert('Error generating topic draft: ' + err.message);
+        }
+    }
+
     function stripHashtags(text) {
         if (!text) return '';
         return text.replace(/#\S+/g, '').replace(/\s+/g, ' ').trim();
@@ -636,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function transcribeSingleVideo(videoURL, forceWhisper, fallbackTitle = '', triggerBtn = null, fallbackDesc = '') {
+        currentTopicContext = null;
         if (currentVideoURL !== videoURL) {
             savedTikTokResult = null;
             savedWhisperResult = null;
@@ -733,6 +1098,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 savedTikTokResult = resultObj;
                 activeTranscriptSource = 'tiktok';
+            }
+
+            if (raw.video_id) {
+                cachedTranscripts[String(raw.video_id)] = resultObj;
+            }
+            if (videoURL) {
+                cachedTranscripts[videoURL] = resultObj;
             }
 
             openTranscriptModal();
@@ -918,6 +1290,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Article Draft Generation with DeepSeek
     async function fetchArticleDraft() {
+        if (currentTopicContext) {
+            await fetchTopicArticleDraft();
+            return;
+        }
+
         if (!currentResult || !currentResult.full_text) {
             alert('No transcript available to write draft from');
             return;
@@ -1023,6 +1400,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 editor.addEventListener('input', () => {
                     const updated = editor.value;
                     currentResult.full_text = updated;
+                    if (currentTopicContext) {
+                        currentTopicContext.customCombinedTranscript = updated;
+                    }
                     if (activeTranscriptSource === 'whisper' && savedWhisperResult) {
                         savedWhisperResult.full_text = updated;
                     } else if (activeTranscriptSource === 'tiktok' && savedTikTokResult) {
@@ -1088,12 +1468,17 @@ document.addEventListener('DOMContentLoaded', () => {
             stepTranscriptBtn.classList.add('active');
             viewDraftBtn.classList.remove('active');
             if (step1ViewToggles) step1ViewToggles.classList.remove('hidden');
-            if (savedWhisperResult && savedTikTokResult && sourceComparisonBar) {
+            if (savedWhisperResult && savedTikTokResult && sourceComparisonBar && !currentTopicContext) {
                 sourceComparisonBar.classList.remove('hidden');
+            } else if (sourceComparisonBar) {
+                sourceComparisonBar.classList.add('hidden');
             }
             if (viewParagraphsBtn) viewParagraphsBtn.classList.add('active');
             if (viewEditBtn) viewEditBtn.classList.remove('active');
-            if (viewTimestampsBtn) viewTimestampsBtn.classList.remove('active');
+            if (viewTimestampsBtn) {
+                viewTimestampsBtn.classList.remove('active');
+                viewTimestampsBtn.classList.toggle('hidden', !!currentTopicContext);
+            }
             if (transcriptContent) transcriptContent.classList.remove('hidden');
             if (draftContainer) draftContainer.classList.add('hidden');
             if (downloadMdBtn) downloadMdBtn.classList.add('hidden');

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=15.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=16.0">
 </head>
 <body>
     <div class="app-container">
@@ -172,46 +172,95 @@
                     </div>
                 </div>
 
-                <!-- Featured Card for the Specific Video Pasted -->
-                <div id="featuredVideoBox" class="featured-video-box hidden">
-                    <div class="featured-badge">Selected Video</div>
-                    <div class="featured-body">
-                        <div class="featured-details">
-                            <h3 id="featuredTitle" class="featured-title">Selected Video</h3>
-                            <p id="featuredDesc" class="featured-desc"></p>
-                            <div class="featured-meta-row">
-                                <span id="featuredDuration" class="pill-meta">0:00</span>
-                                <span id="featuredViews" class="pill-meta">0 views</span>
+                <!-- Profile Section Tabs: All Videos vs Profile Topics -->
+                <div class="profile-tabs-bar" id="profileTabsBar">
+                    <button type="button" id="tabVideosBtn" class="profile-tab-pill active">
+                        <span>All Videos</span>
+                        <span class="tab-count-badge" id="tabVideosCount">0</span>
+                    </button>
+                    <button type="button" id="tabTopicsBtn" class="profile-tab-pill">
+                        <span>Profile Topics</span>
+                        <span class="tab-count-badge" id="tabTopicsBadge">New</span>
+                    </button>
+                </div>
+
+                <!-- Tab 1 Container: All Videos View -->
+                <div id="allVideosContainer" class="tab-pane">
+                    <!-- Featured Card for the Specific Video Pasted -->
+                    <div id="featuredVideoBox" class="featured-video-box hidden">
+                        <div class="featured-badge">Selected Video</div>
+                        <div class="featured-body">
+                            <div class="featured-details">
+                                <h3 id="featuredTitle" class="featured-title">Selected Video</h3>
+                                <p id="featuredDesc" class="featured-desc"></p>
+                                <div class="featured-meta-row">
+                                    <span id="featuredDuration" class="pill-meta">0:00</span>
+                                    <span id="featuredViews" class="pill-meta">0 views</span>
+                                </div>
+                            </div>
+                            <div class="featured-btn-wrap">
+                                <button id="featuredTranscribeBtn" class="btn primary featured-btn">
+                                    Transcribe This Video
+                                </button>
                             </div>
                         </div>
-                        <div class="featured-btn-wrap">
-                            <button id="featuredTranscribeBtn" class="btn primary featured-btn">
-                                Transcribe This Video
+                    </div>
+
+                    <div class="section-header-row">
+                        <div class="section-title-wrap">
+                            <h3 class="sub-heading">All Videos by Creator</h3>
+                            <span id="filteredVideoCount" class="filtered-count"></span>
+                        </div>
+                        <div class="search-controls-wrap">
+                            <div class="video-filter-box">
+                                <span class="filter-icon" style="font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">Find</span>
+                                <input type="text" id="videoSearchInput" class="video-search-input" placeholder="Search keywords in titles or captions..." autocomplete="off">
+                                <button id="clearVideoSearch" class="clear-search-btn hidden" title="Clear search">&times;</button>
+                            </div>
+                            <div class="search-scope-toggle">
+                                <button id="scopeAllBtn" class="scope-btn active" title="Search both titles and captions (excluding hashtags)">All Text</button>
+                                <button id="scopeTitleBtn" class="scope-btn" title="Search only video titles">Titles Only</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="video-grid" id="videoGrid">
+                        <!-- Video cards populated via JS -->
+                    </div>
+                </div>
+
+                <!-- Tab 2 Container: Topics Explorer View -->
+                <div id="topicsContainer" class="tab-pane hidden">
+                    <div id="topicsEmptyState" class="topics-empty-card">
+                        <div class="topics-empty-content">
+                            <div class="topics-spark-icon">&bull;</div>
+                            <h3>Discover Thematic Topics Across This Profile</h3>
+                            <p class="text-muted" style="max-width: 540px; margin: 0.5rem auto 1.25rem auto;">DeepSeek will analyze video titles and captions to group related discussions, multi-part series, and themes into coherent topics.</p>
+                            <button id="analyzeTopicsBtn" type="button" class="btn primary">
+                                <span class="btn-spinner hidden" id="topicsSpinner"></span>
+                                <span id="analyzeTopicsBtnText">Analyze Profile Topics</span>
                             </button>
                         </div>
                     </div>
-                </div>
 
-                <div class="section-header-row">
-                    <div class="section-title-wrap">
-                        <h3 class="sub-heading">All Videos by Creator</h3>
-                        <span id="filteredVideoCount" class="filtered-count"></span>
+                    <div id="topicsLoadingState" class="topics-loading-card hidden">
+                        <div class="spinner large-spinner" style="margin: 0 auto 1rem auto;"></div>
+                        <h4>Analyzing Creator Topics...</h4>
+                        <p class="text-muted">DeepSeek is examining catalog titles and descriptions to identify thematic clusters</p>
                     </div>
-                    <div class="search-controls-wrap">
-                        <div class="video-filter-box">
-                            <span class="filter-icon" style="font-size: 0.8rem; font-weight: 600; color: var(--text-dim);">Find</span>
-                            <input type="text" id="videoSearchInput" class="video-search-input" placeholder="Search keywords in titles or captions..." autocomplete="off">
-                            <button id="clearVideoSearch" class="clear-search-btn hidden" title="Clear search">&times;</button>
-                        </div>
-                        <div class="search-scope-toggle">
-                            <button id="scopeAllBtn" class="scope-btn active" title="Search both titles and captions (excluding hashtags)">All Text</button>
-                            <button id="scopeTitleBtn" class="scope-btn" title="Search only video titles">Titles Only</button>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="video-grid" id="videoGrid">
-                    <!-- Video cards populated via JS -->
+                    <div id="topicsContent" class="topics-content hidden">
+                        <div class="topics-header-row">
+                            <div>
+                                <h3 class="sub-heading" id="topicsCountHeading">Discovered Topics</h3>
+                                <p class="text-muted" style="font-size: 0.85rem;">Click Generate Article Draft on any topic to synthesize its videos into a long-form piece.</p>
+                            </div>
+                            <button id="reanalyzeTopicsBtn" type="button" class="action-btn-light" title="Re-analyze catalog topics">Re-analyze</button>
+                        </div>
+                        <div id="topicsGrid" class="topics-grid">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>
@@ -396,6 +445,6 @@
         </footer>
     </div>
 
-    <script src="/static/js/app.js?v=15.0"></script>
+    <script src="/static/js/app.js?v=16.0"></script>
 </body>
 </html>

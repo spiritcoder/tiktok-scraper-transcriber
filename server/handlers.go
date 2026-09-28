@@ -45,6 +45,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/transcribe", s.handleTranscribe)
 	mux.HandleFunc("/api/generate-title", s.handleGenerateTitle)
 	mux.HandleFunc("/api/generate-draft", s.handleGenerateDraft)
+	mux.HandleFunc("/api/profile-topics", s.handleProfileTopics)
+	mux.HandleFunc("/api/generate-topic-draft", s.handleGenerateTopicDraft)
 
 	return mux
 }
@@ -218,6 +220,98 @@ func (s *Server) handleGenerateDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	draft, err := transcriber.GenerateDraft(req.Transcript, req.VideoTitle, req.VideoDescription, req.ResearchPrompt, apiKey)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"draft":   draft,
+	})
+}
+
+type ProfileTopicsRequest struct {
+	Creator     string                         `json:"creator"`
+	Videos      []transcriber.ProfileVideoMeta `json:"videos"`
+	DeepSeekKey string                         `json:"deepseek_key"`
+}
+
+func (s *Server) handleProfileTopics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ProfileTopicsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid request body"})
+		return
+	}
+
+	apiKey := s.cfg.DeepSeekAPIKey
+	if req.DeepSeekKey != "" {
+		apiKey = strings.TrimSpace(req.DeepSeekKey)
+	}
+
+	if apiKey == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "DeepSeek API key required for topic discovery"})
+		return
+	}
+
+	if len(req.Videos) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "No videos provided to analyze"})
+		return
+	}
+
+	topics, err := transcriber.DiscoverProfileTopics(req.Creator, req.Videos, apiKey)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"topics":  topics,
+	})
+}
+
+type GenerateTopicDraftRequest struct {
+	TopicTitle     string                         `json:"topic_title"`
+	TopicDesc      string                         `json:"topic_desc"`
+	Videos         []transcriber.TopicVideoDetail `json:"videos"`
+	ResearchPrompt string                         `json:"research_prompt"`
+	DeepSeekKey    string                         `json:"deepseek_key"`
+}
+
+func (s *Server) handleGenerateTopicDraft(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req GenerateTopicDraftRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid request body"})
+		return
+	}
+
+	apiKey := s.cfg.DeepSeekAPIKey
+	if req.DeepSeekKey != "" {
+		apiKey = strings.TrimSpace(req.DeepSeekKey)
+	}
+
+	if apiKey == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "DeepSeek API key required for topic draft generation"})
+		return
+	}
+
+	if len(req.Videos) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "No videos provided for this topic"})
+		return
+	}
+
+	draft, err := transcriber.GenerateTopicDraft(req.TopicTitle, req.TopicDesc, req.Videos, req.ResearchPrompt, apiKey)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
