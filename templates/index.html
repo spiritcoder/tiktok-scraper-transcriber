@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=16.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=25.0">
 </head>
 <body>
     <div class="app-container">
@@ -24,6 +24,10 @@
             </div>
 
             <div class="nav-actions">
+                <button id="libraryBtn" class="pill-btn secondary" title="Open Studio Library (Saved Drafts & Profiles)">
+                    <span class="lib-indicator" id="libIndicator"></span>
+                    <span>Library</span>
+                </button>
                 <button id="apiKeyBtn" class="pill-btn secondary" title="Configure API Keys & Whisper Speech Recognition">
                     <span class="key-indicator {{if or .HasEnvKey .HasEnvDeepSeekKey}}active{{end}}" id="keyIndicator"></span>
                     <span id="keyLabel">API & Whisper Settings</span>
@@ -236,7 +240,14 @@
                             <div class="topics-spark-icon">&bull;</div>
                             <h3>Discover Thematic Topics Across This Profile</h3>
                             <p class="text-muted" style="max-width: 540px; margin: 0.5rem auto 1.25rem auto;">DeepSeek will analyze video titles and captions to group related discussions, multi-part series, and themes into coherent topics.</p>
-                            <button id="analyzeTopicsBtn" type="button" class="btn primary">
+                            
+                            <div class="topics-categories-bar">
+                                <label for="targetCategoriesInput" class="topics-cat-label">Target Categories (Optional, comma-separated)</label>
+                                <input type="text" id="targetCategoriesInput" class="custom-input topics-cat-input" placeholder="e.g. Food, History & Heritage, Culture & Traditions, Places & Geography, Arts & Literature...">
+                                <span class="topics-cat-hint">DeepSeek will map topics to these categories. If left blank, categories will be inferred automatically.</span>
+                            </div>
+
+                            <button id="analyzeTopicsBtn" type="button" class="btn primary" style="margin-top: 1rem;">
                                 <span class="btn-spinner hidden" id="topicsSpinner"></span>
                                 <span id="analyzeTopicsBtnText">Analyze Profile Topics</span>
                             </button>
@@ -257,6 +268,15 @@
                             </div>
                             <button id="reanalyzeTopicsBtn" type="button" class="action-btn-light" title="Re-analyze catalog topics">Re-analyze</button>
                         </div>
+
+                        <div class="topics-cat-filter-bar">
+                            <div class="topics-cat-filter-left">
+                                <label for="activeCategoriesInput" class="topics-cat-label-inline">Categories:</label>
+                                <input type="text" id="activeCategoriesInput" class="custom-input topics-cat-inline-input" placeholder="e.g. Food, History & Heritage, Culture & Traditions...">
+                            </div>
+                            <button id="updateCategoriesBtn" type="button" class="mini-btn-light" title="Re-cluster topics with updated categories">Update Categories</button>
+                        </div>
+
                         <div id="topicsGrid" class="topics-grid">
                             <!-- Populated by JS -->
                         </div>
@@ -402,6 +422,16 @@
                                             <label for="draftResearchInput" class="draft-research-label">Research Angle & Focus (Optional)</label>
                                             <input type="text" id="draftResearchInput" class="custom-input draft-research-input" placeholder="e.g. Focus on Odinani philosophy, pre-colonial history, or clan traditions...">
                                         </div>
+                                        <div class="draft-options-row">
+                                            <label class="draft-option-pill" title="Include high-level Executive Summary with Core Premise and Strategic Takeaways">
+                                                <input type="checkbox" id="toggleIncludeSummary" checked>
+                                                <span>Executive Summary</span>
+                                            </label>
+                                            <label class="draft-option-pill" title="Include clickable primary sources and academic external citations">
+                                                <input type="checkbox" id="toggleIncludeReferences" checked>
+                                                <span>External References</span>
+                                            </label>
+                                        </div>
                                         <button id="generateDraftBtn" class="btn primary" style="margin-top: 0.5rem;">Generate Article Draft</button>
                                     </div>
 
@@ -414,9 +444,36 @@
                                     <div class="draft-preview-wrap-light hidden" id="draftPreviewWrap">
                                         <div class="draft-inline-research-bar">
                                             <input type="text" id="draftInlineResearchInput" class="draft-inline-research-input" placeholder="Optional: Tweak research angle or instructions...">
+                                            <div class="draft-inline-options">
+                                                <label class="draft-option-pill mini" title="Toggle Executive Summary">
+                                                    <input type="checkbox" id="toggleInlineIncludeSummary" checked>
+                                                    <span>Summary</span>
+                                                </label>
+                                                <label class="draft-option-pill mini" title="Toggle External References">
+                                                    <input type="checkbox" id="toggleInlineIncludeReferences" checked>
+                                                    <span>References</span>
+                                                </label>
+                                            </div>
                                             <button id="regenerateDraftBtn" class="regen-btn-light" title="Regenerate article draft with research directive">Regenerate</button>
                                             <button id="toggleRawMdBtn" class="regen-btn-light">Edit Markdown</button>
+                                            <button id="saveDraftBtn" class="regen-btn-light primary-tint" title="Save draft to SQLite Library">Save Draft</button>
+                                            <button id="toggleTopicPublishBtn" class="regen-btn-light publish-tint hidden" title="Toggle Published status for this topic">Mark as Published</button>
                                         </div>
+
+                                        <!-- Dedicated Executive Summary Textarea Box -->
+                                        <div class="summary-container-light hidden" id="executiveSummaryCard">
+                                            <div class="summary-header-light">
+                                                <div class="summary-title-wrap">
+                                                    <span class="summary-badge-light">Executive Summary</span>
+                                                    <span class="summary-meta-text" id="summaryMetaCount">0 words</span>
+                                                </div>
+                                                <div class="summary-header-actions">
+                                                    <button type="button" class="mini-btn-light" id="copySummaryBtn" title="Copy executive summary">Copy Summary</button>
+                                                </div>
+                                            </div>
+                                            <textarea id="summaryTextarea" class="summary-textarea-light" rows="4" placeholder="Executive summary will appear here..."></textarea>
+                                        </div>
+
                                         <div class="draft-rendered-light markdown-body" id="draftRendered"></div>
                                         <textarea class="draft-raw-light hidden" id="draftRaw" placeholder="Edit article markdown directly..."></textarea>
                                     </div>
@@ -439,12 +496,62 @@
             </div>
         </div>
 
+        <!-- Studio Library Modal (SQLite Cache & Storage) -->
+        <div id="libraryModal" class="modal-backdrop hidden">
+            <div class="modal-card library-modal-card">
+                <div class="modal-header">
+                    <div class="lib-header-info">
+                        <h3>Studio Library</h3>
+                        <span class="lib-header-sub">SQLite Cache & Storage</span>
+                    </div>
+                    <button class="close-btn" id="closeLibraryModal">&times;</button>
+                </div>
+
+                <div class="lib-tabs-bar">
+                    <button class="lib-tab-btn active" id="libTabDrafts" type="button">Saved Article Drafts</button>
+                    <button class="lib-tab-btn" id="libTabProfiles" type="button">Cached Creator Profiles</button>
+                </div>
+
+                <div class="modal-body library-modal-body">
+                    <!-- Drafts Pane -->
+                    <div id="libDraftsPane" class="lib-pane">
+                        <div id="libDraftsLoading" class="lib-status-box hidden">
+                            <div class="spinner"></div>
+                            <span>Loading saved drafts...</span>
+                        </div>
+                        <div id="libDraftsEmpty" class="lib-status-box hidden">
+                            <p style="font-weight: 600;">No saved article drafts yet</p>
+                            <span class="text-muted" style="font-size: 0.8rem;">Generate articles from topics or transcripts to save them permanently in your local library.</span>
+                        </div>
+                        <div id="libDraftsList" class="lib-items-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Profiles Pane -->
+                    <div id="libProfilesPane" class="lib-pane hidden">
+                        <div id="libProfilesLoading" class="lib-status-box hidden">
+                            <div class="spinner"></div>
+                            <span>Loading cached profiles...</span>
+                        </div>
+                        <div id="libProfilesEmpty" class="lib-status-box hidden">
+                            <p style="font-weight: 600;">No cached profiles found</p>
+                            <span class="text-muted" style="font-size: 0.8rem;">Search any creator profile to cache videos and transcripts locally.</span>
+                        </div>
+                        <div id="libProfilesList" class="lib-items-list">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Footer -->
         <footer class="app-footer">
-            TikTok Transcriber & Studio • Whisper Large-v3 & DeepSeek V3
+            TikTok Transcriber & Studio &bull; Whisper Large-v3 & DeepSeek V3
         </footer>
     </div>
 
-    <script src="/static/js/app.js?v=16.0"></script>
+    <script src="/static/js/app.js?v=26.0"></script>
 </body>
 </html>

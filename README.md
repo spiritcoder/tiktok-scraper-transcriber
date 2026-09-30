@@ -64,7 +64,33 @@ A high-performance Go application and sleek web interface to scrape TikTok video
 
 ## Usage
 
-### 1. Web UI Mode (Recommended)
+### 1. Docker & Docker Compose (Recommended)
+
+Run the full application inside an isolated Docker container with automated `yt-dlp` and `ffmpeg` setup:
+
+```bash
+# 1. (Optional) Create your environment file
+cp .env.example .env
+# Edit .env with your optional GROQ_API_KEY or DEEPSEEK_API_KEY
+
+# 2. Build and run with Docker Compose
+docker compose up -d --build
+
+# 3. View container logs
+docker compose logs -f
+
+# 4. Stop the container
+docker compose down
+```
+
+Open your browser and navigate to:
+```
+http://localhost:8085
+```
+
+---
+
+### 2. Web UI Mode (Local Go)
 
 Start the local web server:
 ```bash
@@ -83,7 +109,7 @@ http://localhost:8085
 
 ---
 
-### 2. CLI Mode
+### 3. CLI Mode
 
 #### Direct Video Transcription
 Transcribe a single video and optionally save output to a file:

@@ -4,7 +4,8 @@
 *.dll
 *.so
 *.dylib
-transcriber
+/transcriber
+!transcriber/
 transcriber.exe
 
 # Downloaded tool binaries
@@ -16,6 +17,8 @@ bin/yt-dlp.exe
 tmp/
 *.tmp
 *.log
+data/
+*.db
 
 # Environment variables and secrets
 .env

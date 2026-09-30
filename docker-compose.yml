@@ -1,0 +1,24 @@
+services:
+  tiktok-scraper-transcriber:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tiktok-scraper-transcriber
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8085}:8085"
+    environment:
+      - PORT=8085
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    volumes:
+      # Persistent SQLite studio database
+      - ./data:/app/data
+      # Temporary storage for audio and subtitle extraction
+      - ./tmp:/app/tmp
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

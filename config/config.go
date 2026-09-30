@@ -17,26 +17,46 @@ type Config struct {
 	Port           string
 	YtDlpPath      string
 	TempDir        string
+	DBPath         string
 }
 
 func LoadConfig() *Config {
 	apiKey := os.Getenv("GROQ_API_KEY")
 	deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
-	tempDir := filepath.Join("tmp")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
+
+	tempDir := os.Getenv("TEMP_DIR")
+	if tempDir == "" {
+		tempDir = filepath.Join("tmp")
+	}
 	_ = os.MkdirAll(tempDir, 0755)
+
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = filepath.Join("data", "studio.db")
+	}
 
 	ytDlpPath := ensureYtDlp()
 
 	return &Config{
 		GroqAPIKey:     apiKey,
 		DeepSeekAPIKey: deepseekKey,
-		Port:           "8085",
+		Port:           port,
 		YtDlpPath:      ytDlpPath,
 		TempDir:        tempDir,
+		DBPath:         dbPath,
 	}
 }
 
 func ensureYtDlp() string {
+	if custom := os.Getenv("YT_DLP_PATH"); custom != "" {
+		return custom
+	}
+
 	binDir := "bin"
 	_ = os.MkdirAll(binDir, 0755)
 
