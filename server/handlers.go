@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -57,6 +58,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("/api/profile-topics", s.handleProfileTopics)
 	mux.HandleFunc("/api/generate-topic-draft", s.handleGenerateTopicDraft)
 	mux.HandleFunc("/api/topic-transcripts", s.handleTopicTranscripts)
+	mux.HandleFunc("/api/research", s.handleResearch)
 
 	// Library & Persistence APIs
 	mux.HandleFunc("/api/library/drafts", s.handleLibraryDrafts)
@@ -75,9 +77,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		HasEnvKey         bool
 		HasEnvDeepSeekKey bool
+		HasEnvTavilyKey   bool
 	}{
 		HasEnvKey:         s.cfg.GroqAPIKey != "",
 		HasEnvDeepSeekKey: s.cfg.DeepSeekAPIKey != "",
+		HasEnvTavilyKey:   s.cfg.TavilyAPIKey != "",
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -260,7 +264,55 @@ type GenerateDraftRequest struct {
 	ResearchPrompt    string `json:"research_prompt"`
 	IncludeSummary    *bool  `json:"include_summary"`
 	IncludeReferences *bool  `json:"include_references"`
+	EnableWebResearch *bool  `json:"enable_web_research"`
 	DeepSeekKey       string `json:"deepseek_key"`
+	TavilyKey         string `json:"tavily_key"`
+}
+
+type ResearchRequest struct {
+	Query            string `json:"query"`
+	VideoTitle       string `json:"video_title"`
+	VideoDescription string `json:"video_description"`
+	Transcript       string `json:"transcript"`
+	UserAngle        string `json:"user_angle"`
+	TavilyKey        string `json:"tavily_key"`
+}
+
+func (s *Server) handleResearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req ResearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Invalid request body"})
+		return
+	}
+
+	apiKey := s.cfg.TavilyAPIKey
+	if req.TavilyKey != "" {
+		apiKey = strings.TrimSpace(req.TavilyKey)
+	}
+
+	if apiKey == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Tavily API key required for live web research. Configure it in Settings or set TAVILY_API_KEY."})
+		return
+	}
+
+	report, err := transcriber.ConductWebResearch(req.Query, req.VideoTitle, req.VideoDescription, req.Transcript, apiKey)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":         true,
+		"query":           report.Query,
+		"answer":          report.Answer,
+		"results":         report.Results,
+		"formatted_brief": report.FormattedBrief,
+	})
 }
 
 func (s *Server) handleGenerateDraft(w http.ResponseWriter, r *http.Request) {
@@ -294,18 +346,54 @@ func (s *Server) handleGenerateDraft(w http.ResponseWriter, r *http.Request) {
 		includeReferences = *req.IncludeReferences
 	}
 
-	summary, article, err := transcriber.GenerateDraft(req.Transcript, req.VideoTitle, req.VideoDescription, req.VideoURL, req.Creator, req.ResearchPrompt, includeSummary, includeReferences, apiKey)
+	// Determine if live web research should be performed before generating draft
+	tavilyKey := s.cfg.TavilyAPIKey
+	if req.TavilyKey != "" {
+		tavilyKey = strings.TrimSpace(req.TavilyKey)
+	}
+
+	enableResearch := false
+	if req.EnableWebResearch != nil {
+		enableResearch = *req.EnableWebResearch
+	} else if tavilyKey != "" {
+		enableResearch = true
+	}
+
+	effectiveResearchPrompt := req.ResearchPrompt
+	var webResearchReport *transcriber.WebResearchReport
+	if enableResearch && tavilyKey != "" {
+		report, resErr := transcriber.ConductWebResearch("", req.VideoTitle, req.VideoDescription, req.Transcript, tavilyKey)
+		if resErr == nil && report != nil && report.FormattedBrief != "" {
+			webResearchReport = report
+			if strings.TrimSpace(effectiveResearchPrompt) != "" {
+				effectiveResearchPrompt = report.FormattedBrief + "\nUSER EDITORIAL DIRECTIVE:\n" + effectiveResearchPrompt
+			} else {
+				effectiveResearchPrompt = report.FormattedBrief
+			}
+		} else if resErr != nil {
+			log.Printf("[Web Research Warning] Single draft research failed: %v", resErr)
+		}
+	}
+
+	summary, article, err := transcriber.GenerateDraft(req.Transcript, req.VideoTitle, req.VideoDescription, req.VideoURL, req.Creator, effectiveResearchPrompt, includeSummary, includeReferences, apiKey)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+
+
+	respData := map[string]any{
 		"success":           true,
 		"draft":             article,
 		"article":           article,
 		"executive_summary": summary,
-	})
+	}
+	if webResearchReport != nil {
+		respData["web_research"] = webResearchReport
+	}
+
+	writeJSON(w, http.StatusOK, respData)
 }
 
 type ProfileTopicsRequest struct {
@@ -575,7 +663,9 @@ type GenerateTopicDraftRequest struct {
 	ResearchPrompt    string                         `json:"research_prompt"`
 	IncludeSummary    *bool                          `json:"include_summary"`
 	IncludeReferences *bool                          `json:"include_references"`
+	EnableWebResearch *bool                          `json:"enable_web_research"`
 	DeepSeekKey       string                         `json:"deepseek_key"`
+	TavilyKey         string                         `json:"tavily_key"`
 }
 
 func (s *Server) handleGenerateTopicDraft(w http.ResponseWriter, r *http.Request) {
@@ -629,30 +719,66 @@ func (s *Server) handleGenerateTopicDraft(w http.ResponseWriter, r *http.Request
 		includeReferences = *req.IncludeReferences
 	}
 
-	summary, article, err := transcriber.GenerateTopicDraft(req.TopicTitle, req.TopicDesc, req.Category, req.Videos, req.ResearchPrompt, includeSummary, includeReferences, apiKey)
+	// Live web research for topic draft synthesis
+	tavilyKey := s.cfg.TavilyAPIKey
+	if req.TavilyKey != "" {
+		tavilyKey = strings.TrimSpace(req.TavilyKey)
+	}
+
+	enableResearch := false
+	if req.EnableWebResearch != nil {
+		enableResearch = *req.EnableWebResearch
+	} else if tavilyKey != "" {
+		enableResearch = true
+	}
+
+	effectiveResearchPrompt := req.ResearchPrompt
+	var webResearchReport *transcriber.WebResearchReport
+	if enableResearch && tavilyKey != "" {
+		report, resErr := transcriber.ConductTopicWebResearch(req.TopicTitle, req.TopicDesc, req.Category, req.ResearchPrompt, tavilyKey)
+		if resErr == nil && report != nil && report.FormattedBrief != "" {
+			webResearchReport = report
+			if strings.TrimSpace(effectiveResearchPrompt) != "" {
+				effectiveResearchPrompt = report.FormattedBrief + "\nUSER EDITORIAL DIRECTIVE:\n" + effectiveResearchPrompt
+			} else {
+				effectiveResearchPrompt = report.FormattedBrief
+			}
+		} else if resErr != nil {
+			log.Printf("[Web Research Warning] Topic draft research failed: %v", resErr)
+		}
+	}
+
+	summary, article, err := transcriber.GenerateTopicDraft(req.TopicTitle, req.TopicDesc, req.Category, req.Videos, effectiveResearchPrompt, includeSummary, includeReferences, apiKey)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 		return
 	}
+
+
 
 	// Auto-save generated draft to SQLite library with source videos and executive summary
 	sourceJSONBytes, _ := json.Marshal(req.Videos)
 	_ = s.store.SaveArticleDraft(&store.ArticleDraftRecord{
 		Title:            req.TopicTitle,
 		Category:         req.Category,
-		ResearchPrompt:   req.ResearchPrompt,
+		ResearchPrompt:   effectiveResearchPrompt,
 		ExecutiveSummary: summary,
 		MarkdownContent:  article,
 		WordCount:        len(strings.Fields(article)),
 		SourceJSON:       string(sourceJSONBytes),
 	})
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	respData := map[string]any{
 		"success":           true,
 		"draft":             article,
 		"article":           article,
 		"executive_summary": summary,
-	})
+	}
+	if webResearchReport != nil {
+		respData["web_research"] = webResearchReport
+	}
+
+	writeJSON(w, http.StatusOK, respData)
 }
 
 func (s *Server) handleLibraryProfiles(w http.ResponseWriter, r *http.Request) {

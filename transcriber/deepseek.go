@@ -91,6 +91,7 @@ Key Strategic Takeaways:
 		if creatorName == "" {
 			creatorName = "creator"
 		}
+
 		referencesStructure = fmt.Sprintf(`## References & Works Cited
 
 ### Primary Source Media
@@ -103,6 +104,11 @@ Key Strategic Takeaways:
 `, cleanTitle, creatorName, primaryLink)
 	}
 
+	headlineAnchor := "[Captivating, Human Article Headline]"
+	if cleanTitle != "" {
+		headlineAnchor = fmt.Sprintf("[Captivating, Human Article Headline focused on %s]", cleanTitle)
+	}
+
 	prompt := `You are an insightful, thoughtful cultural writer, investigative essayist, and domain researcher. Your goal is to write a comprehensive, published-grade article based on the provided video transcript and contextual background.
 
 VOICE & TONE GUIDELINES (SOUND HUMAN & ENGAGING):
@@ -112,14 +118,20 @@ VOICE & TONE GUIDELINES (SOUND HUMAN & ENGAGING):
 - VARY SENTENCE CADENCE: Use a natural mix of short, punchy statements and descriptive flowing thoughts. Write the way smart people actually speak and write when telling a compelling story.
 - STRICTLY NO EMOJIS: Do not use any emoji characters or symbols anywhere in the article.
 
+ABSOLUTE PROHIBITION AGAINST META-COMMENTARY (WRITE DIRECT ESSAY NARRATIVE):
+- NEVER WRITE AS A REVIEWER OR SUMMARIZER OF A VIDEO OR TRANSCRIPT: Do not refer to "the transcript", "the video", "the clip", "the speaker", "the creator", "this TikTok", or "this account" anywhere in the article body.
+- NEVER SAY: "The transcript mentions...", "The transcript describes...", "The speaker notes...", "The creator asks...", "In this video...", "The creator behind this account...".
+- WRITE DIRECTLY WITH NARRATIVE AUTHORITY: Treat the history, people, spirits, geography, oral traditions, and socio-economic realities as living subjects. Write directly about the sacred grove, the elders, the oracles, the chainsaws, the loss of trees, the community dynamics, and the philosophical implications. You are the author telling the story directly to the reader.
+- NO SOCIAL MEDIA META-DETAILS: Do not mention follower counts, name dictionaries, TikTok comments, or creator profile questions in the narrative.
+
 DEEP RESEARCH & CONTEXTUAL EXPANSION:
 - DO NOT JUST PARROT OR SUMMARIZE THE TRANSCRIPT: Actively draw upon your deep knowledge of African history, Igbo culture, linguistics, traditions, geography, and socio-economic dynamics to expand on what the speaker discusses.
-- SUPPLEMENT AND CONTEXTUALIZE: When the speaker mentions a custom, clan, historical figure, proverb, deity, or practice, explain the historical roots, philosophical meaning, and real-world significance for the reader.
+- SUPPLEMENT AND CONTEXTUALIZE: When a custom, clan, historical figure, proverb, deity, or practice is central, explain the historical roots, philosophical meaning, and real-world significance for the reader.
 - RECONSTRUCT AND VERIFY PHONETICALLY DISTORTED WORDS: Speech recognition often mishears African dialects (especially Igbo words or Nigerian Pidgin). Cross-reference with the video title, caption, and your cultural knowledge to correct spellings and provide standard orthography.
 
 REQUIRED OUTPUT STRUCTURE:
 ` + summarySectionDirective + `<<<ARTICLE_BODY>>>
-# [Captivating, Human Article Headline]
+# ` + headlineAnchor + `
 
 [Engaging Narrative Lead: Set the scene, introduce the core idea or story, and hook the reader naturally without corporate preamble.]
 

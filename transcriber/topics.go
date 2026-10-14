@@ -365,6 +365,12 @@ VOICE & TONE GUIDELINES (SOUND HUMAN & ENGAGING):
 - VARY SENTENCE CADENCE: Use a natural mix of short, punchy statements and descriptive flowing thoughts. Write the way smart people speak when telling a compelling story.
 - STRICTLY NO EMOJIS: Do not use any emoji characters or symbols anywhere in the article.
 
+ABSOLUTE PROHIBITION AGAINST META-COMMENTARY (WRITE DIRECT ESSAY NARRATIVE):
+- NEVER WRITE AS A REVIEWER OR SUMMARIZER OF VIDEOS OR TRANSCRIPTS: Do not refer to "the transcript", "the video", "the clip", "the speaker", "the creator", "the series", or "this TikTok" anywhere in the article body.
+- NEVER SAY: "The transcript mentions...", "The transcript describes...", "The speaker notes...", "The creator asks...", "In these videos...", "The creator behind this account...".
+- WRITE DIRECTLY WITH NARRATIVE AUTHORITY: Treat the history, people, spirits, geography, oral traditions, and socio-economic realities as living subjects. Write directly about the community, the sacred grove, the elders, the oracles, the chainsaws, the loss of trees, the community dynamics, and the philosophical implications. You are the author telling the story directly to the reader.
+- NO SOCIAL MEDIA META-DETAILS: Do not mention follower counts, name dictionaries, TikTok comments, or creator profile questions in the narrative.
+
 DEEP RESEARCH & SYNTHESIS DIRECTIVES:
 - SYNTHESIZE ACROSS ALL VIDEOS: Do not treat the videos as separate disconnected clips. Unify the arguments, anecdotes, and themes from all provided videos into one compelling, progressive narrative.
 - EXTENSIVE BACKGROUND RESEARCH: Actively draw upon your deep knowledge of African history, Igbo culture, linguistics, traditions, geography, and real-world parallels to enrich what the speaker mentions.
@@ -372,7 +378,7 @@ DEEP RESEARCH & SYNTHESIS DIRECTIVES:
 
 REQUIRED OUTPUT STRUCTURE:
 ` + summarySectionDirective + `<<<ARTICLE_BODY>>>
-# [Captivating, Human Article Headline]
+# ` + cleanTopicTitle + `
 **Category:** ` + cleanCategory + `
 
 [Engaging Narrative Lead: Set the scene, introduce the central theme connecting these videos, and hook the reader naturally without corporate preamble.]

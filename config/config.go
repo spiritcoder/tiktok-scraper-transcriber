@@ -14,6 +14,7 @@ import (
 type Config struct {
 	GroqAPIKey     string
 	DeepSeekAPIKey string
+	TavilyAPIKey   string
 	Port           string
 	YtDlpPath      string
 	TempDir        string
@@ -23,6 +24,7 @@ type Config struct {
 func LoadConfig() *Config {
 	apiKey := os.Getenv("GROQ_API_KEY")
 	deepseekKey := os.Getenv("DEEPSEEK_API_KEY")
+	tavilyKey := os.Getenv("TAVILY_API_KEY")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -45,6 +47,7 @@ func LoadConfig() *Config {
 	return &Config{
 		GroqAPIKey:     apiKey,
 		DeepSeekAPIKey: deepseekKey,
+		TavilyAPIKey:   tavilyKey,
 		Port:           port,
 		YtDlpPath:      ytDlpPath,
 		TempDir:        tempDir,

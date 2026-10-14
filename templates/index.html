@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=25.0">
+    <link rel="stylesheet" href="/static/css/style.css?v=26.2">
 </head>
 <body>
     <div class="app-container">
@@ -29,7 +29,7 @@
                     <span>Library</span>
                 </button>
                 <button id="apiKeyBtn" class="pill-btn secondary" title="Configure API Keys & Whisper Speech Recognition">
-                    <span class="key-indicator {{if or .HasEnvKey .HasEnvDeepSeekKey}}active{{end}}" id="keyIndicator"></span>
+                    <span class="key-indicator {{if or .HasEnvKey .HasEnvDeepSeekKey .HasEnvTavilyKey}}active{{end}}" id="keyIndicator"></span>
                     <span id="keyLabel">API & Whisper Settings</span>
                 </button>
             </div>
@@ -59,6 +59,15 @@
                             <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: var(--accent); font-size: 0.76rem; text-decoration: underline;">Get key</a>
                         </div>
                         <input type="password" id="deepseekKeyInput" class="custom-input" placeholder="sk-xxxxxxxxxxxxxxxxxxxx" style="margin-top: 0.35rem;">
+                    </div>
+
+                    <!-- Tavily Web Research Key -->
+                    <div class="settings-section" style="margin-bottom: 1.25rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <label for="tavilyKeyInput" style="font-weight: 700; font-size: 0.88rem;">Tavily API Key <span style="font-weight: 400; font-size: 0.76rem; color: var(--text-muted);">(Web Research)</span></label>
+                            <a href="https://app.tavily.com" target="_blank" style="color: var(--accent); font-size: 0.76rem; text-decoration: underline;">Get 1,000 free searches</a>
+                        </div>
+                        <input type="password" id="tavilyKeyInput" class="custom-input" placeholder="tvly-xxxxxxxxxxxxxxxxxxxx" style="margin-top: 0.35rem;">
                     </div>
 
                     <!-- Whisper Vocabulary Prompt -->
@@ -419,10 +428,19 @@
                                         <h4>Generate Article Draft with DeepSeek</h4>
                                         <p class="text-muted-light">Transforms active transcript and context into a human, researched article with cultural insights.</p>
                                         <div class="draft-research-wrap">
-                                            <label for="draftResearchInput" class="draft-research-label">Research Angle & Focus (Optional)</label>
+                                            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.35rem;">
+                                                <label for="draftResearchInput" class="draft-research-label" style="margin-bottom: 0;">Research Angle & Focus (Optional)</label>
+                                                <button type="button" id="fetchResearchBtn" class="pill-btn research-btn-pulse" style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 999px;" title="Search Google & web sources via Tavily before drafting">
+                                                    <span>🔎 Auto-Research</span>
+                                                </button>
+                                            </div>
                                             <input type="text" id="draftResearchInput" class="custom-input draft-research-input" placeholder="e.g. Focus on Odinani philosophy, pre-colonial history, or clan traditions...">
                                         </div>
                                         <div class="draft-options-row">
+                                            <label class="draft-option-pill" title="Perform real-time web research to verify facts, dates, and historical context">
+                                                <input type="checkbox" id="toggleWebResearch" checked>
+                                                <span>🌐 Web Research Grounding</span>
+                                            </label>
                                             <label class="draft-option-pill" title="Include high-level Executive Summary with Core Premise and Strategic Takeaways">
                                                 <input type="checkbox" id="toggleIncludeSummary" checked>
                                                 <span>Executive Summary</span>
@@ -437,14 +455,19 @@
 
                                     <div class="draft-loading-state-light hidden" id="draftLoadingState">
                                         <div class="spinner large-spinner" style="margin: 0 auto 0.85rem auto;"></div>
-                                        <h4>Composing Article Draft...</h4>
-                                        <p class="text-muted-light">DeepSeek is conducting background research and writing in an engaging human voice</p>
+                                        <h4 id="draftLoadingTitle">Composing Article Draft...</h4>
+                                        <p class="text-muted-light" id="draftLoadingDesc">DeepSeek is conducting background research and writing in an engaging human voice</p>
                                     </div>
 
                                     <div class="draft-preview-wrap-light hidden" id="draftPreviewWrap">
                                         <div class="draft-inline-research-bar">
                                             <input type="text" id="draftInlineResearchInput" class="draft-inline-research-input" placeholder="Optional: Tweak research angle or instructions...">
+                                            <button type="button" id="inlineFetchResearchBtn" class="regen-btn-light" title="Fetch live web research findings into this field">🔎 Research</button>
                                             <div class="draft-inline-options">
+                                                <label class="draft-option-pill mini" title="Toggle Live Web Research Grounding">
+                                                    <input type="checkbox" id="toggleInlineWebResearch" checked>
+                                                    <span>🌐 Research</span>
+                                                </label>
                                                 <label class="draft-option-pill mini" title="Toggle Executive Summary">
                                                     <input type="checkbox" id="toggleInlineIncludeSummary" checked>
                                                     <span>Summary</span>
@@ -458,6 +481,31 @@
                                             <button id="toggleRawMdBtn" class="regen-btn-light">Edit Markdown</button>
                                             <button id="saveDraftBtn" class="regen-btn-light primary-tint" title="Save draft to SQLite Library">Save Draft</button>
                                             <button id="toggleTopicPublishBtn" class="regen-btn-light publish-tint hidden" title="Toggle Published status for this topic">Mark as Published</button>
+                                        </div>
+
+                                        <!-- Live Web Research Grounding Card -->
+                                        <div class="research-grounding-card hidden" id="researchGroundingCard">
+                                            <div class="research-grounding-header">
+                                                <div class="research-grounding-title-wrap">
+                                                    <span class="research-badge-pill">🌐 Grounded with Web Research</span>
+                                                    <span class="research-query-pill" id="researchQueryLabel"></span>
+                                                </div>
+                                                <div class="research-grounding-actions">
+                                                    <button type="button" class="mini-btn-light" id="toggleResearchDetailsBtn" title="Toggle sources list">
+                                                        <span id="researchToggleText">Sources (0)</span>
+                                                        <span id="researchToggleArrow" style="margin-left: 0.25rem;">▼</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="research-grounding-body hidden" id="researchGroundingBody">
+                                                <div class="research-answer-box hidden" id="researchAnswerBox">
+                                                    <div style="font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: #1E40AF; margin-bottom: 0.25rem;">Factual Context Synthesis (Tavily)</div>
+                                                    <p id="researchAnswerText" style="margin: 0; font-size: 0.88rem; line-height: 1.5; color: #1E293B;"></p>
+                                                </div>
+                                                <div class="research-sources-list" id="researchSourcesList">
+                                                    <!-- Dynamic list of verified web sources with clickable links -->
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <!-- Dedicated Executive Summary Textarea Box -->
@@ -552,6 +600,6 @@
         </footer>
     </div>
 
-    <script src="/static/js/app.js?v=26.0"></script>
+    <script src="/static/js/app.js?v=26.2"></script>
 </body>
 </html>

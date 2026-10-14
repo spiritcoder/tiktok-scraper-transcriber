@@ -125,6 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleIncludeReferences = document.getElementById('toggleIncludeReferences');
     const toggleInlineIncludeSummary = document.getElementById('toggleInlineIncludeSummary');
     const toggleInlineIncludeReferences = document.getElementById('toggleInlineIncludeReferences');
+    const toggleWebResearch = document.getElementById('toggleWebResearch');
+    const toggleInlineWebResearch = document.getElementById('toggleInlineWebResearch');
+    const fetchResearchBtn = document.getElementById('fetchResearchBtn');
+    const inlineFetchResearchBtn = document.getElementById('inlineFetchResearchBtn');
+    const tavilyKeyInput = document.getElementById('tavilyKeyInput');
 
     if (toggleIncludeSummary && toggleInlineIncludeSummary) {
         toggleIncludeSummary.addEventListener('change', () => {
@@ -141,6 +146,123 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleInlineIncludeReferences.addEventListener('change', () => {
             toggleIncludeReferences.checked = toggleInlineIncludeReferences.checked;
         });
+    }
+    if (toggleWebResearch && toggleInlineWebResearch) {
+        toggleWebResearch.addEventListener('change', () => {
+            toggleInlineWebResearch.checked = toggleWebResearch.checked;
+        });
+        toggleInlineWebResearch.addEventListener('change', () => {
+            toggleWebResearch.checked = toggleInlineWebResearch.checked;
+        });
+    }
+
+    // Live Web Research Grounding UI Elements
+    const researchGroundingCard = document.getElementById('researchGroundingCard');
+    const researchQueryLabel = document.getElementById('researchQueryLabel');
+    const toggleResearchDetailsBtn = document.getElementById('toggleResearchDetailsBtn');
+    const researchToggleText = document.getElementById('researchToggleText');
+    const researchToggleArrow = document.getElementById('researchToggleArrow');
+    const researchGroundingBody = document.getElementById('researchGroundingBody');
+    const researchAnswerBox = document.getElementById('researchAnswerBox');
+    const researchAnswerText = document.getElementById('researchAnswerText');
+    const researchSourcesList = document.getElementById('researchSourcesList');
+    const draftLoadingTitle = document.getElementById('draftLoadingTitle');
+    const draftLoadingDesc = document.getElementById('draftLoadingDesc');
+
+    if (toggleResearchDetailsBtn && researchGroundingBody) {
+        toggleResearchDetailsBtn.addEventListener('click', () => {
+            const isHidden = researchGroundingBody.classList.toggle('hidden');
+            if (researchToggleArrow) {
+                researchToggleArrow.textContent = isHidden ? '▼' : '▲';
+            }
+        });
+    }
+
+    function renderResearchGroundingTray(webResearch) {
+        if (!researchGroundingCard) return;
+
+        if (!webResearch || (!webResearch.answer && (!webResearch.results || webResearch.results.length === 0))) {
+            researchGroundingCard.classList.add('hidden');
+            return;
+        }
+
+        if (researchQueryLabel) {
+            researchQueryLabel.textContent = webResearch.query ? `Query: "${webResearch.query}"` : '';
+        }
+
+        const results = webResearch.results || [];
+        if (researchToggleText) {
+            researchToggleText.textContent = `Sources (${results.length})`;
+        }
+
+        if (researchAnswerBox && researchAnswerText) {
+            if (webResearch.answer && webResearch.answer.trim()) {
+                researchAnswerText.textContent = webResearch.answer.trim();
+                researchAnswerBox.classList.remove('hidden');
+            } else {
+                researchAnswerBox.classList.add('hidden');
+            }
+        }
+
+        if (researchSourcesList) {
+            researchSourcesList.innerHTML = '';
+            results.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'research-source-item';
+
+                let hostname = '';
+                try {
+                    hostname = new URL(item.url).hostname.replace(/^www\./, '');
+                } catch (e) {
+                    hostname = 'web source';
+                }
+
+                const header = document.createElement('div');
+                header.className = 'research-source-header';
+
+                const link = document.createElement('a');
+                link.className = 'research-source-link';
+                link.href = item.url || '#';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+
+                const numSpan = document.createElement('span');
+                numSpan.textContent = `[${idx + 1}] `;
+                const titleSpan = document.createElement('span');
+                titleSpan.textContent = item.title || item.url || 'Web Source';
+                const arrowSpan = document.createElement('span');
+                arrowSpan.textContent = ' ↗';
+                arrowSpan.style.fontSize = '0.75rem';
+                arrowSpan.style.opacity = '0.8';
+
+                link.appendChild(numSpan);
+                link.appendChild(titleSpan);
+                link.appendChild(arrowSpan);
+
+                const domain = document.createElement('span');
+                domain.className = 'research-source-domain';
+                domain.textContent = hostname;
+
+                header.appendChild(link);
+                header.appendChild(domain);
+                div.appendChild(header);
+
+                if (item.content) {
+                    const snippet = document.createElement('p');
+                    snippet.className = 'research-source-snippet';
+                    snippet.textContent = item.content;
+                    div.appendChild(snippet);
+                }
+
+                researchSourcesList.appendChild(div);
+            });
+        }
+
+        researchGroundingCard.classList.remove('hidden');
+        if (researchGroundingBody) {
+            researchGroundingBody.classList.remove('hidden');
+            if (researchToggleArrow) researchToggleArrow.textContent = '▲';
+        }
     }
 
     const executiveSummaryCard = document.getElementById('executiveSummaryCard');
@@ -226,17 +348,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedDeepSeekKey) {
         deepseekKeyInput.value = savedDeepSeekKey;
     }
+    const savedTavilyKey = localStorage.getItem('tavily_api_key');
+    if (savedTavilyKey && tavilyKeyInput) {
+        tavilyKeyInput.value = savedTavilyKey;
+    }
     updateKeyIndicator();
 
     function updateKeyIndicator() {
         const hasGroq = !!(groqKeyInput.value.trim() || localStorage.getItem('groq_api_key'));
         const hasDeepSeek = !!(deepseekKeyInput.value.trim() || localStorage.getItem('deepseek_api_key'));
+        const hasTavily = !!(tavilyKeyInput && (tavilyKeyInput.value.trim() || localStorage.getItem('tavily_api_key')));
 
-        if (hasGroq || hasDeepSeek) {
+        if (hasGroq || hasDeepSeek || hasTavily) {
             keyIndicator.classList.add('active');
             let labels = [];
             if (hasGroq) labels.push('Groq');
             if (hasDeepSeek) labels.push('DeepSeek');
+            if (hasTavily) labels.push('Tavily');
             keyLabel.textContent = labels.join(' + ') + ' Active';
         } else {
             keyIndicator.classList.remove('active');
@@ -281,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getDeepSeekKey() {
         return deepseekKeyInput.value.trim() || localStorage.getItem('deepseek_api_key') || '';
+    }
+
+    function getTavilyKey() {
+        return (tavilyKeyInput && tavilyKeyInput.value.trim()) || localStorage.getItem('tavily_api_key') || '';
     }
 
     // Whisper prompt & language synchronization across Search Card and Modal
@@ -465,6 +597,15 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('deepseek_api_key', deepseekVal);
         } else {
             localStorage.removeItem('deepseek_api_key');
+        }
+
+        if (tavilyKeyInput) {
+            const tavilyVal = tavilyKeyInput.value.trim();
+            if (tavilyVal) {
+                localStorage.setItem('tavily_api_key', tavilyVal);
+            } else {
+                localStorage.removeItem('tavily_api_key');
+            }
         }
 
         if (modalWhisperPromptInput) {
@@ -1258,6 +1399,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (draftPreviewWrap) draftPreviewWrap.classList.add('hidden');
         if (draftLoadingState) draftLoadingState.classList.remove('hidden');
 
+        const includeSummary = toggleIncludeSummary ? toggleIncludeSummary.checked : true;
+        const includeReferences = toggleIncludeReferences ? toggleIncludeReferences.checked : true;
+        const enableWebResearch = toggleWebResearch ? toggleWebResearch.checked : true;
+        const tavilyKey = getTavilyKey();
+
+        if (enableWebResearch && !tavilyKey) {
+            keyModal.classList.remove('hidden');
+            if (tavilyKeyInput) tavilyKeyInput.focus();
+            alert('A Tavily API key is required to perform live web research.\n\nPlease enter your free Tavily key in the API Settings modal (or uncheck "Web Research Grounding" if you wish to draft without web search).');
+            return;
+        }
+
+        if (enableWebResearch) {
+            if (draftLoadingTitle) draftLoadingTitle.textContent = '🌐 Researching Web & Synthesizing Topic Draft...';
+            if (draftLoadingDesc) draftLoadingDesc.textContent = 'Tavily is gathering external scholarly and historical sources to ground this article...';
+        } else {
+            if (draftLoadingTitle) draftLoadingTitle.textContent = 'Synthesizing Topic Draft...';
+            if (draftLoadingDesc) draftLoadingDesc.textContent = 'DeepSeek is synthesizing multiple videos into an article draft...';
+        }
+
         let videosPayload = [];
         if (currentTopicContext.topicVideoTranscripts && currentTopicContext.topicVideoTranscripts.length > 0) {
             videosPayload = currentTopicContext.topicVideoTranscripts.map(tv => ({
@@ -1301,9 +1462,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }];
         }
 
-        const includeSummary = toggleIncludeSummary ? toggleIncludeSummary.checked : true;
-        const includeReferences = toggleIncludeReferences ? toggleIncludeReferences.checked : true;
-
         try {
             const resp = await fetch('/api/generate-topic-draft', {
                 method: 'POST',
@@ -1316,7 +1474,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     research_prompt: researchVal,
                     include_summary: includeSummary,
                     include_references: includeReferences,
-                    deepseek_key: deepseekKey
+                    enable_web_research: enableWebResearch,
+                    deepseek_key: deepseekKey,
+                    tavily_key: tavilyKey
                 })
             });
 
@@ -1336,6 +1496,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (draftRendered) draftRendered.innerHTML = renderMarkdown(currentDraft);
                 if (draftRaw) draftRaw.value = currentDraft;
+                if (data.web_research) renderResearchGroundingTray(data.web_research);
                 if (draftLoadingState) draftLoadingState.classList.add('hidden');
                 if (draftPreviewWrap) draftPreviewWrap.classList.remove('hidden');
             } else {
@@ -1658,6 +1819,99 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Live Web Research Grounding via Tavily
+    async function triggerWebResearch(buttonEl) {
+        const userFocus = (draftInlineResearchInput && draftInlineResearchInput.value.trim()) ||
+                          (draftResearchInput && draftResearchInput.value.trim()) || '';
+        
+        let title = '';
+        let desc = '';
+        let transcript = '';
+
+        if (currentTopicContext && currentTopicContext.topic) {
+            title = currentTopicContext.topic.title || '';
+            desc = currentTopicContext.topic.description || '';
+            transcript = currentDraft || '';
+        } else if (currentResult) {
+            title = currentResult.video_title || '';
+            desc = currentResult.video_desc || '';
+            transcript = currentResult.full_text || '';
+        }
+
+        const tavilyKey = getTavilyKey();
+        if (!tavilyKey) {
+            keyModal.classList.remove('hidden');
+            if (tavilyKeyInput) tavilyKeyInput.focus();
+            alert('A Tavily API key is required to research the web.\n\nPlease enter your free Tavily key in the API Settings modal.');
+            return;
+        }
+
+        const originalHtml = buttonEl ? buttonEl.innerHTML : '';
+        if (buttonEl) {
+            buttonEl.disabled = true;
+            buttonEl.innerHTML = '<span>🔎 Searching web...</span>';
+        }
+
+        try {
+            const resp = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    video_title: title,
+                    video_description: desc,
+                    transcript: transcript,
+                    user_angle: userFocus,
+                    tavily_key: getTavilyKey()
+                })
+            });
+
+            const data = await resp.json();
+            if (data.success && (data.answer || (data.results && data.results.length > 0))) {
+                let researchNote = '';
+                if (data.answer) {
+                    researchNote = data.answer.trim();
+                } else if (data.results && data.results.length > 0) {
+                    researchNote = data.results.map(r => `${r.title}: ${r.content}`).slice(0, 2).join('; ');
+                }
+
+                if (userFocus && !researchNote.toLowerCase().includes(userFocus.toLowerCase())) {
+                    researchNote = `${userFocus}\n\n[Verified Web Research]: ${researchNote}`;
+                }
+
+                renderResearchGroundingTray({
+                    query: data.query,
+                    answer: data.answer,
+                    results: data.results
+                });
+
+                if (draftEmptyState) {
+                    draftPreviewWrap.classList.remove('hidden');
+                }
+
+                if (buttonEl) {
+                    buttonEl.innerHTML = '<span>✓ Researched!</span>';
+                    setTimeout(() => {
+                        buttonEl.innerHTML = originalHtml;
+                    }, 2500);
+                }
+            } else {
+                throw new Error(data.error || 'No relevant search results found');
+            }
+        } catch (err) {
+            alert(err.message || 'Web research failed. Please configure your Tavily API key in Settings.');
+            if (buttonEl) buttonEl.innerHTML = originalHtml;
+        } finally {
+            if (buttonEl) buttonEl.disabled = false;
+        }
+    }
+
+    if (fetchResearchBtn) {
+        fetchResearchBtn.addEventListener('click', () => triggerWebResearch(fetchResearchBtn));
+    }
+    if (inlineFetchResearchBtn) {
+        inlineFetchResearchBtn.addEventListener('click', () => triggerWebResearch(inlineFetchResearchBtn));
+    }
+
     // Article Draft Generation with DeepSeek
     async function fetchArticleDraft() {
         if (currentTopicContext) {
@@ -1687,13 +1941,30 @@ document.addEventListener('DOMContentLoaded', () => {
             draftInlineResearchInput.value = researchVal;
         }
 
+        const includeSummary = toggleIncludeSummary ? toggleIncludeSummary.checked : true;
+        const includeReferences = toggleIncludeReferences ? toggleIncludeReferences.checked : true;
+        const enableWebResearch = toggleWebResearch ? toggleWebResearch.checked : true;
+        const creatorName = (profileUsername ? profileUsername.textContent.replace(/^@/, '') : '') || '';
+        const tavilyKey = getTavilyKey();
+
+        if (enableWebResearch && !tavilyKey) {
+            keyModal.classList.remove('hidden');
+            if (tavilyKeyInput) tavilyKeyInput.focus();
+            alert('A Tavily API key is required to perform live web research.\n\nPlease enter your free Tavily key in the API Settings modal (or uncheck "Web Research Grounding" if you wish to draft without web search).');
+            return;
+        }
+
         draftEmptyState.classList.add('hidden');
         draftPreviewWrap.classList.add('hidden');
         draftLoadingState.classList.remove('hidden');
 
-        const includeSummary = toggleIncludeSummary ? toggleIncludeSummary.checked : true;
-        const includeReferences = toggleIncludeReferences ? toggleIncludeReferences.checked : true;
-        const creatorName = (profileUsername ? profileUsername.textContent.replace(/^@/, '') : '') || '';
+        if (enableWebResearch) {
+            if (draftLoadingTitle) draftLoadingTitle.textContent = '🌐 Researching Web & Composing Draft...';
+            if (draftLoadingDesc) draftLoadingDesc.textContent = 'Tavily is gathering verified web sources, checking citations, and grounding DeepSeek...';
+        } else {
+            if (draftLoadingTitle) draftLoadingTitle.textContent = 'Composing Article Draft...';
+            if (draftLoadingDesc) draftLoadingDesc.textContent = 'DeepSeek is writing in an engaging human voice...';
+        }
 
         try {
             const resp = await fetch('/api/generate-draft', {
@@ -1708,7 +1979,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     research_prompt: researchVal,
                     include_summary: includeSummary,
                     include_references: includeReferences,
+                    enable_web_research: enableWebResearch,
                     deepseek_key: deepseekKey,
+                    tavily_key: tavilyKey
                 })
             });
 
@@ -1728,6 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 draftRendered.innerHTML = renderMarkdown(currentDraft);
                 draftRaw.value = currentDraft;
+                if (data.web_research) renderResearchGroundingTray(data.web_research);
                 draftLoadingState.classList.add('hidden');
                 draftPreviewWrap.classList.remove('hidden');
             } else {

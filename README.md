@@ -34,6 +34,9 @@ A high-performance Go application and sleek web interface to scrape TikTok video
 4. **[Optional] DeepSeek API Key**:
    - Used for generating structured article drafts with set-aside headings.
    - Get an API key at [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys). Configurable via UI settings or `DEEPSEEK_API_KEY` environment variable.
+5. **[Optional] Tavily API Key**:
+   - Used for real-time web research grounding and external fact verification before article drafting.
+   - Get 1,000 free searches/month at [app.tavily.com](https://app.tavily.com). Configurable via UI settings or `TAVILY_API_KEY` environment variable.
 
 ---
 
